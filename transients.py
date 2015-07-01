@@ -12,7 +12,10 @@ from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, tran
 from bson import json_util
 import json
 
-define("port", default=8000, help="run on the given port", type=int)
+
+port = 9000
+
+define("port", default=port, help="run on the given port", type=int)
 
 class Application(tornado.web.Application):
         def __init__(self):
@@ -30,7 +33,7 @@ class Application(tornado.web.Application):
                                 )
 
                 tornado.web.Application.__init__(self, handlers, **settings)
-		
+		print 'running on port ' + str(port)
 		client = motor.MotorClient(mongodb_uri)
 		self.db =  client["transients-sandbox"]
 
