@@ -12,6 +12,9 @@ from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, tran
 from bson import json_util
 import json
 
+import boto
+from boto.s3.connection import S3Connection
+from boto.s3.key import Key
 
 port = 9000
 
@@ -23,7 +26,8 @@ class Application(tornado.web.Application):
 
                                 (r"/", MainHandler),
 				(r"/geosounds", GeosoundsHandler),
-				(r"/inserttest", InsertTestHandler)
+				(r"/inserttest", InsertTestHandler),
+				(r"/uploadaudio", UploadAudioHandler)
                                 ]
 
                 settings = dict(
@@ -60,6 +64,35 @@ class InsertTestHandler(tornado.web.RequestHandler):
 	def get(self):
 		document = {"lat" : 40.5, "lng" : 70.3}
 		self.application.db.geosounds.insert(document)
+
+class UploadAudioHandler(tornado.web.RequestHandler):
+	#this class post action receives a wav file and uploads the file to amazon s3
+	def post(self):
+			wav = self.request.files['wav'][0] #wav post data from form
+
+			wavbody = wav['body'] #body of wav file
+			wavname = wav['filename'] #wav name and path
+
+			conn = S3Connection(aws_public_key, aws_secret_key)
+			bucket = conn.get_bucket('transients-devel') #bucket for wavs
+
+			k = Key(bucket) #key associated with wav bucket
+
+			k.key = wavname #sets key to file name
+
+			k.set_metadata("Content-Type", "audio/mp3") #sets metadata for audio/wav
+
+			# k.set_contents_from_file()
+			k.set_contents_from_string( wav )#, cb=self.mycb(), num_cb=1000)
+
+			print('made it this far')
+			k.set_acl('public-read') #makes wav public
+
+			self.write("uploaded!")
+
+
+	def get(self):
+		self.render('uploadwav.html')
 
 
 if __name__ == "__main__":
