@@ -80,10 +80,10 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 
 			k.key = wavname #sets key to file name
 
-			k.set_metadata("Content-Type", "audio/mp3") #sets metadata for audio/wav
+			k.set_metadata("Content-Type", "audio/wav") #sets metadata for audio/wav
 
 			# k.set_contents_from_file()
-			k.set_contents_from_string( wav )#, cb=self.mycb(), num_cb=1000)
+			k.set_contents_from_string( wavbody )#, cb=self.mycb(), num_cb=1000)
 
 			print('made it this far')
 			k.set_acl('public-read') #makes wav public
