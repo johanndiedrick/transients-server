@@ -29,7 +29,7 @@ class Application(tornado.web.Application):
 				(r"/inserttest", InsertTestHandler),
 				(r"/uploadaudio", UploadAudioHandler),
 				(r"/uploadjson", UploadJSONHandler),
-				(r"/map", mapHandler)
+				(r"/map", MapHandler)
                                 ]
 
                 settings = dict(
@@ -68,7 +68,7 @@ class InsertTestHandler(tornado.web.RequestHandler):
 		document = {"lat" : 40.5, "lng" : 70.3}
 		self.application.db.geosounds.insert(document)
 
-class Maphandler(tornado.web.RequestHandler):
+class MapHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("map.html")
@@ -102,7 +102,7 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 		self.render('uploadwav.html')
 
 class UploadJSONHandler(tornado.web.RequestHandler):
-	def post(self):
+	# def post(self):
 
 	def get(self):
 		self.write("Upload JSON")
