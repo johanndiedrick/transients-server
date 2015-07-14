@@ -16,6 +16,8 @@ import boto
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
+import datetime
+
 port = 9000
 
 define("port", default=port, help="run on the given port", type=int)
@@ -86,7 +88,9 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 
 			k = Key(bucket) #key associated with wav bucket
 
-			k.key = wavname #sets key to file name
+			filename = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + ".wav"
+
+			k.key = filename #sets key to file name
 
 			k.set_metadata("Content-Type", "audio/wav") #sets metadata for audio/wav
 
@@ -96,8 +100,10 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			print('made it this far')
 			k.set_acl('public-read') #makes wav public
 
-			self.write("uploaded!")
-			return "uploaded" + wavname
+			print('uploaded')
+
+			# return
+			self.write({"success": True, "filename": filename })
 
 	def get(self):
 		self.render('uploadwav.html')
