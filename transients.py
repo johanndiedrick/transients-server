@@ -27,7 +27,9 @@ class Application(tornado.web.Application):
                                 (r"/", MainHandler),
 				(r"/geosounds", GeosoundsHandler),
 				(r"/inserttest", InsertTestHandler),
-				(r"/uploadaudio", UploadAudioHandler)
+				(r"/uploadaudio", UploadAudioHandler),
+				(r"/uploadjson", UploadJSONHandler),
+				(r"/map", mapHandler)
                                 ]
 
                 settings = dict(
@@ -35,6 +37,7 @@ class Application(tornado.web.Application):
                                 static_path=os.path.join(os.path.dirname(__file__), "static"),
                                 debug = True
                                 )
+
 
                 tornado.web.Application.__init__(self, handlers, **settings)
 		print 'running on port ' + str(port)
@@ -65,6 +68,11 @@ class InsertTestHandler(tornado.web.RequestHandler):
 		document = {"lat" : 40.5, "lng" : 70.3}
 		self.application.db.geosounds.insert(document)
 
+class Maphandler(tornado.web.RequestHandler):
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		self.render("map.html")
+
 class UploadAudioHandler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
 	def post(self):
@@ -90,10 +98,14 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 
 			self.write("uploaded!")
 
-
 	def get(self):
 		self.render('uploadwav.html')
 
+class UploadJSONHandler(tornado.web.RequestHandler):
+	def post(self):
+
+	def get(self):
+		self.write("Upload JSON")
 
 if __name__ == "__main__":
         tornado.options.parse_command_line()
