@@ -118,8 +118,8 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound = dict()
 		sound['latitude'] = data_json['latitude']
 		sound['longitude'] = data_json['longitude']
-		sound['sound_date'] = data_json['sound_date']
-		sound['sound_url'] = transients_aws_base_url + "sound_" + data_json['sound_date'] + ".wav"
+		# sound['sound_date'] = data_json['sound_date']
+		sound['sound_url'] = transients_aws_base_url + "sound_" + data_json['filename']
 		print sound
 
 		coll.insert(sound)
