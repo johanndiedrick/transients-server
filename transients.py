@@ -97,15 +97,29 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			k.set_acl('public-read') #makes wav public
 
 			self.write("uploaded!")
+			return "uploaded" + wavname
 
 	def get(self):
 		self.render('uploadwav.html')
 
 class UploadJSONHandler(tornado.web.RequestHandler):
-	# def post(self):
+	def post(self):
+		data_json = tornado.escape.json_decode(self.request.body)
+
+		# collection
+		coll = self.application.db.geosounds
+
+		sound = dict()
+		sound['latitude'] = data_json['latitude']
+		sound['longitude'] = data_json['longitude']
+		sound['sound_date'] = data_json['sound_date']
+		sound['sound_url'] = transients_aws_base_url + "sound_" + data_json['sound_date'] + ".wav"
+		print sound
+
+		coll.insert(sound)
 
 	def get(self):
-		self.write("Upload JSON")
+		self.write("Ready to upload JSON")
 
 if __name__ == "__main__":
         tornado.options.parse_command_line()
