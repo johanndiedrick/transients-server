@@ -55,6 +55,9 @@ class GeosoundsHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	@tornado.gen.coroutine
 	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "http://localhost:9000")
+		self.set_header("Access-Control-Expose-Headers: Access-Control-Allow-Origin");
+		self.set_header("Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept");
 		geosounds = {}
 		all_geosounds = []
 		cursor = self.application.db.geosounds.find({})
