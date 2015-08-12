@@ -7,7 +7,7 @@ from tornado.options import define, options
 import tornado.gen
 import tornado.web
 import motor
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url
+from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret
 
 from bson import json_util
 import json
@@ -31,7 +31,9 @@ class Application(tornado.web.Application):
 				(r"/inserttest", InsertTestHandler),
 				(r"/uploadaudio", UploadAudioHandler),
 				(r"/uploadjson", UploadJSONHandler),
-				(r"/map", MapHandler)
+				(r"/map", MapHandler),
+				(r"/newmap", NewMapHandler)
+
                                 ]
 
                 settings = dict(
@@ -75,6 +77,12 @@ class MapHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("map.html")
+
+class NewMapHandler(tornado.web.RequestHandler):
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		self.render("maplet.html", mapbox_public_key=mapbox_public_key)
+
 
 class UploadAudioHandler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
