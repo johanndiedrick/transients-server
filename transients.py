@@ -7,7 +7,7 @@ from tornado.options import define, options
 import tornado.gen
 import tornado.web
 import motor
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret
+from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key
 
 from bson import json_util
 import json
@@ -133,6 +133,7 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['title'] = data_json['title']
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
+		sound['isDrifting'] = data_json['isDrifting']
 
 		print sound
 
