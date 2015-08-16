@@ -7,7 +7,7 @@ from tornado.options import define, options
 import tornado.gen
 import tornado.web
 import motor
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key
+from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret_key
 
 from bson import json_util
 import json
