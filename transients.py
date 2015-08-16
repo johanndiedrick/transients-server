@@ -134,6 +134,8 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
 		sound['isDrifting'] = data_json['isDrifting']
+		sound['thrownLatitude'] = data_json['thrownLatitude']
+		sound['thrownLongitude'] = data_json['thrownLongitude']
 
 		print sound
 
