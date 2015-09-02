@@ -1,0 +1,266 @@
+<html>
+<head>
+	<title>Transients Mapb</title>
+	<meta charset="utf-8" />
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+</head>
+
+<body>
+	<div id="map" style="width: 100%; height: 100%;"></div>
+
+	<script src="{{ static_url('js/leaflet.js') }}"></script>
+
+	<script>
+		var map;
+		var circles = [];
+		var userLocation = [42.92916, -33.98037984042799]; // NYC default
+
+		var debugDiv;
+		var autoPlayOnPopup = true;
+
+		// load the map
+		window.onload = function() {
+			console.log('doc ready');
+			initMap(userLocation);
+
+			debugDiv = document.getElementById('msg');
+		};
+
+		// center map if user gives location
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition( setUserLocation );
+		}
+
+		// set the user location, then center the map
+		function setUserLocation(loc) {
+			userLocation = [loc.coords.latitude, loc.coords.longitude];
+			centerMap(userLocation);
+		}
+
+		function centerMap(loc) {
+			map.setView(loc, 13);
+
+			// temporary fun: use bounds to set random drift amount range
+			var bounds = map.getBounds();
+			var latMin = bounds._southWest.lat;
+			var latMax = bounds._northEast.lat;
+			var lngMin = bounds._southWest.lng;
+			var lngMax = bounds._northEast.lng;
+
+			// for (var i = 0; i < circles.length; i++) {
+			// 	var circle = circles[i];
+			// 	var positiveOrNegativeLat = Math.random() > 0.5 ? -1 : 1;
+			// 	var positiveOrNegativeLng = Math.random() > 0.5 ? -1 : 1;
+			// 	// circle.velocity.lat = positiveOrNegativeLat * Math.random() * (latMax - latMin) /2000;
+			// 	// circle.velocity.lng = positiveOrNegativeLng * Math.random() * (lngMax - lngMin) /2000;
+			// }
+
+
+		}
+
+
+		// center the map to any location [lat, lng]
+		function initMap(loc) {
+			map = L.map('map').setView(loc, 13);
+
+			L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={{mapbox_public_key}}', {
+				attribution: 'Map Data!',
+				maxZoom: 18,
+				continuousWorld: false,
+				noWrap: true,
+				id: 'transients.de92d381',
+				accessToken: '{{mapbox_public_key}}'
+			}).addTo(map);
+
+			map.on('popupopen', function(e){
+
+				var clickLat = e.popup._latlng.lat;
+				var clickLng = e.popup._latlng.lng;
+
+				// get the popup contents
+				var popupContent = document.getElementsByClassName('leaflet-popup-content')[0];
+
+				// find and play the audio
+				if (autoPlayOnPopup) {
+					var audioEl = popupContent.querySelector('audio');
+					audioEl.play();
+				}
+
+				// update the lat/lng
+				var latSpan = popupContent.querySelector('.lat');
+				latSpan.innerHTML = clickLat;
+				var lngSpan = popupContent.querySelector('.lng');
+				lngSpan.innerHTML = clickLng;
+			});
+		}
+
+		//receive geoSounds. Create a geoSounds array that will contain data from the db as well as leaflet circles
+		var geoSounds = []; 
+
+		$.getJSON('http://ec2-52-24-91-31.us-west-2.compute.amazonaws.com:9000/geosounds', function(data) {
+			geoSounds = data['geosounds'];
+
+			for (i = 0; i < geoSounds.length; i++) {
+
+				var thisLoc = geoSounds[i];
+
+				var lat = thisLoc['latitude'];
+				var lng = thisLoc['longitude'];
+
+				var latDif = thisLoc['thrownLatitude'];
+				var lngDif = thisLoc['thrownLongitude'];
+
+				// vector change in lat/lng
+				var dirVec = {
+					lat: 0,
+					lng: 0
+				};
+
+				// factor in drifting direction (TO DO: velocity/time)
+				if (thisLoc.isDrifting) {
+
+					// reset to false, then true only if it is actually changing
+					thisLoc.isDrifting = false;
+
+					var latChange = lat - latDif;
+					if (!isNaN(latChange) && latChange != 0) {
+						dirVec.lat = latChange;
+						thisLoc.isDrifting = true;
+					}
+
+					var lngChange = lng - lngDif;
+					if (!isNaN(lngChange) && lngChange != 0) {
+						dirVec.lng = lngChange;
+						thisLoc.isDrifting = true;
+					}
+				}
+
+				var pos = [lat, lng];
+
+				var circle = L.circle( pos, 50, {
+					color: thisLoc.isDrifting ? 'green' : 'red',
+					fillColor: thisLoc.isDrifting ? 'yellow' : '#f03',
+					fillOpacity: 0.5
+				});
+
+				// the location keeps track of the circle
+				thisLoc.circle = circle;
+
+				// find mp3 url based on sound_url (wav url)
+				var wavURL = thisLoc['sound_url'];
+				var splitURL = wavURL.split('/')
+				var wavFileName = splitURL.pop();
+				wavFileName = wavFileName.replace('.wav', '.mp3');
+				splitURL.push('mp3');
+				splitURL.push(wavFileName);
+				splitURL = splitURL.join('/');
+				thisLoc.mp3URL = splitURL;
+
+				// figure out direction
+				thisLoc.dirVec = dirVec;
+				thisLoc.originalDate = new Date(thisLoc.date + ' ' + thisLoc.time);
+				thisLoc.originalPos = {
+					'lat': pos[0],
+					'lng': pos[1]
+				};
+				thisLoc.getCurrentLocation = function() {
+					return this.circle._latlng;
+				}
+
+				circles.push(circle);
+
+				var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
+				var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
+				
+
+				circle.bindPopup("<h1>"+title +"</h1><h3>"
+				 + date + "</h3>"
+				 + "<h4><span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
+				 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
+				circle.addTo(map);
+
+				// test if the file exists
+				var request = new XMLHttpRequest();
+				request.open('GET', thisLoc.mp3URL, true);
+				request.onreadystatechange = function(e) {
+					if (request.readyState === 4) {
+						if (request.status > 400) {
+							console.log('nooo');
+
+							// remove this circle
+							geoSounds.pop();
+						}
+					}
+				}
+			request.send(null);
+			}
+
+		});
+
+		// animate the circles
+		var start = 0;
+
+		function step(timestamp) {
+			var bounds = map.getBounds();
+
+			var seconds = Math.round(timestamp / 1000);
+			var radiusChange = seconds % 2 ? -0.2 : 0.2;
+
+			var now = new Date();
+
+			for (var i = 0; i < geoSounds.length; i++) {
+				var geo = geoSounds[i];
+				var c = geo.circle;
+
+				geo.circle._mRadius += radiusChange;
+
+				// drift
+				if (geo.isDrifting) {
+					var elapsedTime = (now - geo.originalDate);
+
+					 newLng
+					var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lat);
+					var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lng);
+
+					c._latlng.lat = newLat % 90;
+					c._latlng.lng = newLng % 180;
+
+					// border checking to make sure they dont get caught
+					if (c._latlng.lng >= 180) {
+						c._latlng.lng = -179;
+					}
+					if (c._latlng.lng <= -180) {
+						c._latlng.lng = 179;
+					}
+					if (c._latlng.lat >= 90) {
+						c._latlng.lat = -89;
+					}
+					if (c._latlng.lat <= -90) {
+						c._latlng.lat = 89;
+					}
+
+				};
+
+				c.redraw();
+			}
+
+			window.requestAnimationFrame(step);
+		}
+		window.requestAnimationFrame(step);
+
+	</script>
+
+
+</body>
+</html>
+
+<!--
+	research:
+	 http://zevross.com/blog/2014/09/30/use-the-amazing-d3-library-to-animate-a-path-on-a-leaflet-map/
+-->
