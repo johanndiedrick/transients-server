@@ -32,7 +32,9 @@ class Application(tornado.web.Application):
 				(r"/uploadaudio", UploadAudioHandler),
 				(r"/uploadjson", UploadJSONHandler),
 				(r"/map", MapHandler),
-				(r"/newmap", NewMapHandler)
+				(r"/newmap", NewMapHandler),
+				(r"/mapb", MapBHandler)
+
 
                                 ]
 
@@ -83,6 +85,10 @@ class NewMapHandler(tornado.web.RequestHandler):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("maplet.html", mapbox_public_key=mapbox_public_key)
 
+class MapBHandler(tornado.web.RequestHandler):
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		self.render("mapb.html", mapbox_public_key=mapbox_public_key)
 
 class UploadAudioHandler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
