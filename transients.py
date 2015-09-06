@@ -41,7 +41,8 @@ class Application(tornado.web.Application):
                 settings = dict(
                                 template_path=os.path.join(os.path.dirname(__file__), "templates"),
                                 static_path=os.path.join(os.path.dirname(__file__), "static"),
-                                debug = True
+                                debug = True,
+				static_hash_cache=False
                                 )
 
 
