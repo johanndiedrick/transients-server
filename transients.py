@@ -111,7 +111,7 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			mp3name = mp3['filename'] #wav name and path
 
 			conn = S3Connection(aws_public_key, aws_secret_key)
-			bucket = conn.get_bucket('transients-devel/mp3') #bucket for wavs
+			bucket = conn.get_bucket('transients-devel') #bucket for wavs
 
 			k = Key(bucket) #key associated with wav bucket
 
