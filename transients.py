@@ -174,7 +174,7 @@ class EchoWebSocketHandler(tornado.websocket.WebSocketHandler):
 		print("WebSocket opened")
 
 	def on_message(self, message):
-		self.write_message(u"You said: " + message)
+		self.write_message(json.dumps({'msg': u"You said: " + message}))
 
 	def on_close(self):
 		if self in cl:
