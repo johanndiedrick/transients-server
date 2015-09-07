@@ -7,7 +7,8 @@ from tornado.options import define, options
 import tornado.gen
 import tornado.web
 import motor
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret
+import tornado.websocket
+from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret_key
 
 from bson import json_util
 import json
@@ -19,6 +20,10 @@ from boto.s3.key import Key
 import datetime
 
 port = 9000
+
+# connected clients
+cl = []
+
 
 define("port", default=port, help="run on the given port", type=int)
 
@@ -32,14 +37,18 @@ class Application(tornado.web.Application):
 				(r"/uploadaudio", UploadAudioHandler),
 				(r"/uploadjson", UploadJSONHandler),
 				(r"/map", MapHandler),
-				(r"/newmap", NewMapHandler)
+				(r"/newmap", NewMapHandler),
+				(r"/mapb", MapBHandler),
+				(r"/websocket", EchoWebSocketHandler)
+
 
                                 ]
 
                 settings = dict(
                                 template_path=os.path.join(os.path.dirname(__file__), "templates"),
                                 static_path=os.path.join(os.path.dirname(__file__), "static"),
-                                debug = True
+                                debug = True,
+				static_hash_cache=False
                                 )
 
 
@@ -57,7 +66,7 @@ class GeosoundsHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	@tornado.gen.coroutine
 	def get(self):
-		self.set_header("Access-Control-Allow-Origin", "http://localhost:9000")
+		self.set_header("Access-Control-Allow-Origin", "*")
 		geosounds = {}
 		all_geosounds = []
 		cursor = self.application.db.geosounds.find({})
@@ -66,6 +75,11 @@ class GeosoundsHandler(tornado.web.RequestHandler):
 			all_geosounds.append(geosound)
 		geosounds = { "geosounds" : all_geosounds }
 		self.write(json.dumps(geosounds, default=json_util.default)) #write json
+
+		# tornado.websocket.WebSocketHandler.write_message(tornado.websocket.WebSocketHandler, "what is happening")
+		for c in cl:
+			c.write_message(json.dumps({'newSounds': geosounds}, default=json_util.default))
+
 		self.finish
 
 class InsertTestHandler(tornado.web.RequestHandler):
@@ -83,28 +97,32 @@ class NewMapHandler(tornado.web.RequestHandler):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("maplet.html", mapbox_public_key=mapbox_public_key)
 
+class MapBHandler(tornado.web.RequestHandler):
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		self.render("mapb.html", mapbox_public_key=mapbox_public_key)
 
 class UploadAudioHandler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
 	def post(self):
-			wav = self.request.files['wav'][0] #wav post data from form
+			mp3 = self.request.files['mp3'][0] #wav post data from form
 
-			wavbody = wav['body'] #body of wav file
-			wavname = wav['filename'] #wav name and path
+			mp3body = mp3['body'] #body of wav file
+			mp3name = mp3['filename'] #wav name and path
 
 			conn = S3Connection(aws_public_key, aws_secret_key)
-			bucket = conn.get_bucket('transients-devel') #bucket for wavs
+			bucket = conn.get_bucket('transients-devel/mp3') #bucket for wavs
 
 			k = Key(bucket) #key associated with wav bucket
 
-			filename = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + ".wav"
+			filename = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + ".mp3"
 
 			k.key = filename #sets key to file name
 
-			k.set_metadata("Content-Type", "audio/wav") #sets metadata for audio/wav
+			k.set_metadata("Content-Type", "audio/mp3") #sets metadata for audio/wav
 
 			# k.set_contents_from_file()
-			k.set_contents_from_string( wavbody )#, cb=self.mycb(), num_cb=1000)
+			k.set_contents_from_string( mp3body )#, cb=self.mycb(), num_cb=1000)
 
 			print('made it this far')
 			k.set_acl('public-read') #makes wav public
@@ -115,7 +133,7 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			self.write({"success": True, "filename": filename })
 
 	def get(self):
-		self.render('uploadwav.html')
+		self.render('uploadmp3.html')
 
 class UploadJSONHandler(tornado.web.RequestHandler):
 	def post(self):
@@ -133,6 +151,13 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['title'] = data_json['title']
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
+		sound['isDrifting'] = data_json['isDrifting']
+		sound['thrownLatitude'] = data_json['thrownLatitude']
+		sound['thrownLongitude'] = data_json['thrownLongitude']
+
+		# send the new sound to all connected clients
+		for c in cl:
+			c.write_message(json.dumps({'newSound': sound}, default=json_util.default))
 
 		print sound
 
@@ -140,6 +165,22 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 
 	def get(self):
 		self.write("Ready to upload JSON")
+
+# websocket handler
+class EchoWebSocketHandler(tornado.websocket.WebSocketHandler):
+	def open(self):
+		if self not in cl:
+			cl.append(self)
+		print("WebSocket opened")
+
+	def on_message(self, message):
+		self.write_message(u"You said: " + message)
+
+	def on_close(self):
+		if self in cl:
+			cl.remove(self)
+		print("WebSocket closed")
+
 
 if __name__ == "__main__":
         tornado.options.parse_command_line()
