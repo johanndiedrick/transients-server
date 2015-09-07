@@ -6,8 +6,11 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
+	<link rel="stylesheet" href="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.css') }}" />
 
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+	<script src="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.js') }}"></script>
 
 </head>
 
@@ -19,17 +22,20 @@
 	<script>
 		var map;
 		var circles = [];
-		var userLocation = [42.92916, -33.98037984042799]; // NYC default
+		var geoSounds = []; 
+		var userLocation = [40.7245450, -73.9418600]; // NYC default
 
 		var debugDiv;
 		var autoPlayOnPopup = true;
+		var apiURL = 'http://localhost:9000'; // 'http://www.xn--vg8hjj.ws';
 
 		// load the map
 		window.onload = function() {
 			console.log('doc ready');
 			initMap(userLocation);
-
+			initWebSockets()
 			debugDiv = document.getElementById('msg');
+			initJqueryUI();
 		};
 
 		// center map if user gives location
@@ -60,7 +66,6 @@
 			// 	// circle.velocity.lat = positiveOrNegativeLat * Math.random() * (latMax - latMin) /2000;
 			// 	// circle.velocity.lng = positiveOrNegativeLng * Math.random() * (lngMax - lngMin) /2000;
 			// }
-
 
 		}
 
@@ -101,89 +106,12 @@
 		}
 
 		//receive geoSounds. Create a geoSounds array that will contain data from the db as well as leaflet circles
-		var geoSounds = []; 
-
-		$.getJSON('http://www.xn--vg8hjj.ws/geosounds', function(data) {
+		$.getJSON(apiURL + '/geosounds', function(data) {
 			geoSounds = data['geosounds'];
 
 			for (i = 0; i < geoSounds.length; i++) {
-
 				var thisLoc = geoSounds[i];
-
-				var lat = thisLoc['latitude'];
-				var lng = thisLoc['longitude'];
-
-				var latDif = thisLoc['thrownLatitude'];
-				var lngDif = thisLoc['thrownLongitude'];
-
-				// vector change in lat/lng
-				var dirVec = {
-					lat: 0,
-					lng: 0
-				};
-
-				// factor in drifting direction (TO DO: velocity/time)
-				if (thisLoc.isDrifting) {
-
-					// reset to false, then true only if it is actually changing
-					thisLoc.isDrifting = false;
-
-					var latChange = lat - latDif;
-					if (!isNaN(latChange) && latChange != 0) {
-						dirVec.lat = latChange;
-						thisLoc.isDrifting = true;
-					}
-
-					var lngChange = lng - lngDif;
-					if (!isNaN(lngChange) && lngChange != 0) {
-						dirVec.lng = lngChange;
-						thisLoc.isDrifting = true;
-					}
-				}
-
-				var pos = [lat, lng];
-
-				var circle = L.circle( pos, 50, {
-					color: thisLoc.isDrifting ? 'green' : 'red',
-					fillColor: thisLoc.isDrifting ? 'yellow' : '#f03',
-					fillOpacity: 0.5
-				});
-
-				// the location keeps track of the circle
-				thisLoc.circle = circle;
-
-				// find mp3 url based on sound_url (wav url)
-				var wavURL = thisLoc['sound_url'];
-				var splitURL = wavURL.split('/')
-				var wavFileName = splitURL.pop();
-				wavFileName = wavFileName.replace('.wav', '.mp3');
-				splitURL.push('mp3');
-				splitURL.push(wavFileName);
-				splitURL = splitURL.join('/');
-				thisLoc.mp3URL = splitURL;
-
-				// figure out direction
-				thisLoc.dirVec = dirVec;
-				thisLoc.originalDate = new Date(thisLoc.date + ' ' + thisLoc.time);
-				thisLoc.originalPos = {
-					'lat': pos[0],
-					'lng': pos[1]
-				};
-				thisLoc.getCurrentLocation = function() {
-					return this.circle._latlng;
-				}
-
-				circles.push(circle);
-
-				var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
-				var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
-				
-
-				circle.bindPopup("<h1>"+title +"</h1><h3>"
-				 + date + "</h3>"
-				 + "<h4><span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
-				 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
-				circle.addTo(map);
+				addGeoSound(thisLoc);
 
 				// test if the file exists
 				var request = new XMLHttpRequest();
@@ -202,6 +130,86 @@
 			}
 
 		});
+
+
+		function addGeoSound(thisLoc) {
+
+			var lat = thisLoc['latitude'];
+			var lng = thisLoc['longitude'];
+
+			var latDif = thisLoc['thrownLatitude'];
+			var lngDif = thisLoc['thrownLongitude'];
+
+			// vector change in lat/lng
+			var dirVec = {
+				lat: 0,
+				lng: 0
+			};
+
+			// factor in drifting direction (TO DO: velocity/time)
+			if (thisLoc.isDrifting) {
+
+				// reset to false, then true only if it is actually changing
+				thisLoc.isDrifting = false;
+
+				var latChange = lat - latDif;
+				if (!isNaN(latChange) && latChange != 0) {
+					dirVec.lat = latChange;
+					thisLoc.isDrifting = true;
+				}
+
+				var lngChange = lng - lngDif;
+				if (!isNaN(lngChange) && lngChange != 0) {
+					dirVec.lng = lngChange;
+					thisLoc.isDrifting = true;
+				}
+			}
+
+			var pos = [lat, lng];
+
+			var circle = L.circle( pos, 50, {
+				color: thisLoc.isDrifting ? 'green' : 'red',
+				fillColor: thisLoc.isDrifting ? 'yellow' : '#f03',
+				fillOpacity: 0.5
+			});
+
+			// the location keeps track of the circle
+			thisLoc.circle = circle;
+
+			// find mp3 url based on sound_url (wav url)
+			var wavURL = thisLoc['sound_url'];
+			var splitURL = wavURL.split('/')
+			var wavFileName = splitURL.pop();
+			wavFileName = wavFileName.replace('.wav', '.mp3');
+			splitURL.push('mp3');
+			splitURL.push(wavFileName);
+			splitURL = splitURL.join('/');
+			thisLoc.mp3URL = splitURL;
+
+			// figure out direction
+			thisLoc.dirVec = dirVec;
+			thisLoc.originalDate = new Date(thisLoc.date + ' ' + thisLoc.time);
+			thisLoc.originalPos = {
+				'lat': pos[0],
+				'lng': pos[1]
+			};
+			thisLoc.getCurrentLocation = function() {
+				return this.circle._latlng;
+			}
+
+			circles.push(circle);
+
+			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
+			var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
+			
+
+			circle.bindPopup("<h1>"+title +"</h1><h3>"
+			 + date + "</h3>"
+			 + "<h4><span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
+			 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
+			circle.addTo(map);
+		}
+
 
 		// animate the circles
 		var start = 0;
@@ -254,9 +262,59 @@
 		}
 		window.requestAnimationFrame(step);
 
+		// WEB SOCKETS
+		function initWebSockets() {
+			// web sockets
+			var ws = new WebSocket("ws://localhost:9000/websocket");
+			ws.onopen = function() {
+			   ws.send("Hello, world");
+			};
+			ws.onmessage = function (evt) {
+				var data = JSON.parse(evt.data);
+
+				// add a new sound
+				if (data.newSound) {
+					flashMessage('new sound was added');
+					addGeoSound(data.newSound);
+				}
+
+				else if (data.newSounds) {
+					console.log(data.newSounds);
+				}
+			};
+		}
+
+
+		function initJqueryUI() {
+			$(function() {
+			  $( "#dialog" ).dialog({
+			    autoOpen: false,
+			    show: {
+			      effect: "blind",
+			      duration: 500
+			    },
+			    hide: {
+			      effect: "explode",
+			      duration: 1000
+			    }
+			  });
+			
+			  $( "#opener" ).click(function() {
+			    $( "#dialog" ).dialog( "open" );
+
+			    window.setTimeout(function() {
+				    $( "#dialog" ).dialog( "close" );
+			    }, 2000);
+			  });
+			});
+		}
 	</script>
 
-
+	<div id="dialog" title="New Sound">
+	  <p>A new sound was added!</p>
+	</div>
+	 
+	<button id="opener">Open Dialog</button>
 </body>
 </html>
 
