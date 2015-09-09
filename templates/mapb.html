@@ -27,7 +27,7 @@
 
 		var debugDiv;
 		var autoPlayOnPopup = true;
-		var apiURL = 'http://localhost:9000'; // 'http://www.xn--vg8hjj.ws';
+		var apiURL = 'http://www.xn--vg8hjj.ws';
 
 		// load the map
 		window.onload = function() {
@@ -178,13 +178,13 @@
 
 			// find mp3 url based on sound_url (wav url)
 			var wavURL = thisLoc['sound_url'];
-			var splitURL = wavURL.split('/')
-			var wavFileName = splitURL.pop();
-			wavFileName = wavFileName.replace('.wav', '.mp3');
-			splitURL.push('mp3');
-			splitURL.push(wavFileName);
-			splitURL = splitURL.join('/');
-			thisLoc.mp3URL = splitURL;
+			//var splitURL = wavURL.split('/')
+			//var wavFileName = splitURL.pop();
+			//wavFileName = wavFileName.replace('.wav', '.mp3');
+			//splitURL.push('mp3');
+			//splitURL.push(wavFileName);
+			//splitURL = splitURL.join('/');
+			thisLoc.mp3URL = wavURL;
 
 			// figure out direction
 			thisLoc.dirVec = dirVec;
@@ -201,10 +201,13 @@
 
 			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
 			var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
+			var wavURL = typeof(thisLoc['sound_url']) != 'undefined' ? thisLoc['sound_url'] : '';
+
 			
 
 			circle.bindPopup("<h1>"+title +"</h1><h3>"
 			 + date + "</h3>"
+		 	 + wavURL 
 			 + "<h4><span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
 			 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
 			circle.addTo(map);
