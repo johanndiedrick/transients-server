@@ -29,7 +29,8 @@
 		var autoPlayOnPopup = true;
 
 		// url for web sockets etc
-		var apiURL = 'www.xn--vg8hjj.ws';
+		var apiURL = 'xn--vg8hjj.ws';
+		// var apiURL = '52.11.202.99:9000';
 		// var apiURL = 'localhost:9000';
 
 		// load the map
@@ -271,6 +272,7 @@
 			var ws = new WebSocket("ws://" + apiURL + "/websocket");
 			ws.onopen = function() {
 			   ws.send("Hello, world");
+			   console.log('connected to web socket');
 			};
 			ws.onmessage = function (evt) {
 				var data = JSON.parse(evt.data);
