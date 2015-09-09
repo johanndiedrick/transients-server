@@ -28,6 +28,7 @@
 		var debugDiv;
 		var autoPlayOnPopup = true;
 		var apiURL = 'http://www.xn--vg8hjj.ws';
+		// var apiURL = 'localhost:9000';
 
 		// load the map
 		window.onload = function() {
@@ -106,7 +107,7 @@
 		}
 
 		//receive geoSounds. Create a geoSounds array that will contain data from the db as well as leaflet circles
-		$.getJSON(apiURL + '/geosounds', function(data) {
+		$.getJSON('http://' + apiURL + '/geosounds', function(data) {
 			geoSounds = data['geosounds'];
 
 			for (i = 0; i < geoSounds.length; i++) {
@@ -268,7 +269,7 @@
 		// WEB SOCKETS
 		function initWebSockets() {
 			// web sockets
-			var ws = new WebSocket("ws://localhost:9000/websocket");
+			var ws = new WebSocket("ws://" + apiURL + "/websocket");
 			ws.onopen = function() {
 			   ws.send("Hello, world");
 			};
@@ -284,9 +285,22 @@
 				else if (data.newSounds) {
 					console.log(data.newSounds);
 				}
+
+				else if (data.msg) {
+					console.log(data.msg);
+				}
 			};
 		}
 
+
+		function flashMessage(geoSound) {
+			    $( "#dialog" ).dialog( "open" );
+
+			    window.setTimeout(function() {
+				    $( "#dialog" ).dialog( "close" );
+			    }, 2000);
+
+		}
 
 		function initJqueryUI() {
 			$(function() {
