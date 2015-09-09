@@ -60,6 +60,7 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
 	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
 		self.write("Hello, world")
 
 class GeosoundsHandler(tornado.web.RequestHandler):
