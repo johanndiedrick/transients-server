@@ -8,7 +8,7 @@ import tornado.gen
 import tornado.web
 import motor
 import tornado.websocket
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, mapbox_public_key, mapbox_secret_key
+from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, transients_s3_base_url, mapbox_public_key, mapbox_secret_key
 
 from bson import json_util
 import json
@@ -60,6 +60,7 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
 	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
 		self.write("Hello, world")
 
 class GeosoundsHandler(tornado.web.RequestHandler):
@@ -111,7 +112,7 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			mp3name = mp3['filename'] #wav name and path
 
 			conn = S3Connection(aws_public_key, aws_secret_key)
-			bucket = conn.get_bucket('transients-devel') #bucket for wavs
+			bucket = conn.get_bucket('transients-mp3') #bucket for wavs
 
 			k = Key(bucket) #key associated with wav bucket
 
@@ -145,7 +146,7 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound = dict()
 		sound['latitude'] = data_json['latitude']
 		sound['longitude'] = data_json['longitude']
-		sound['sound_url'] = transients_aws_base_url + data_json['filename']
+		sound['sound_url'] = transients_s3_base_url + data_json['filename']
 		sound['date'] = data_json['date']
 		sound['time'] = data_json['time']
 		sound['title'] = data_json['title']
