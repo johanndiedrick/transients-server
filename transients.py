@@ -149,7 +149,6 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
 		sound['date'] = data_json['date']
 		sound['time'] = data_json['time']
-		sound['title'] = data_json['title']
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
 		sound['isDrifting'] = data_json['isDrifting']
