@@ -180,8 +180,8 @@
 			// the location keeps track of the circle
 			thisLoc.circle = circle;
 
-			// find mp3 url based on sound_url (wav url)
-			var wavURL = thisLoc['sound_url'];
+			// find mp3 url based on sound_url_mp3 (mp3 url)
+			var wavURL = thisLoc['sound_url_mp3'];
 			//var splitURL = wavURL.split('/')
 			//var wavFileName = splitURL.pop();
 			//wavFileName = wavFileName.replace('.wav', '.mp3');
@@ -205,7 +205,7 @@
 
 			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
 			var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
-			var wavURL = typeof(thisLoc['sound_url']) != 'undefined' ? thisLoc['sound_url'] : '';
+			var wavURL = typeof(thisLoc['sound_url_mp3']) != 'undefined' ? thisLoc['sound_url_mp3'] : '';
 
 			
 
