@@ -170,9 +170,11 @@
 				var newGeoSounds = data['geosounds'];
 				if (newGeoSounds.length > numberOfGeoSoundsInDatabase) {
 					var newSound = newGeoSounds.pop();
+					geoSounds.push(newSound);
 					flashMessage('<p>A new sound was added: </p><h2>' + newSound.description + '</h2>');
 					addGeoSound(newSound);
 					geoSounds.push(newSound);
+					goToGeoSound(newSound);
 				}
 			});
 		}
@@ -495,7 +497,7 @@
 
 		function goToGeoSound(geoSound) {
 			var currentLoc = geoSound.getCurrentLocation();
-			map.panTo(currentLoc, 13);
+			map.setView(currentLoc, 13);
 			geoSound.circle.openPopup();
 		}
 
