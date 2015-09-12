@@ -322,7 +322,7 @@
 				if (data.newSound) {
 					flashMessage('<p>A new sound was added: </p><h2>' + data.newSound.description + '</h2>');
 					addGeoSound(data.newSound);
-					geoSounds.push(geoSound);
+					geoSounds.push(data.newSound);
 				}
 
 				else if (data.newSounds) {
