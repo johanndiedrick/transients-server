@@ -171,6 +171,7 @@
 				if (newGeoSounds.length > numberOfGeoSoundsInDatabase) {
 					var newSound = newGeoSounds.pop();
 					geoSounds.push(newSound);
+					numberOfGeoSoundsInDatabase = geoSounds.length;
 					flashMessage('<p>A new sound was added: </p><h2>' + newSound.description + '</h2>');
 					addGeoSound(newSound);
 					geoSounds.push(newSound);
