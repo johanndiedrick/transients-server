@@ -406,8 +406,8 @@
 
 		function calculateDrift(geo, c, elapsedTime) {
 
-			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 50000000 * Number(geo.dirVec.lat);
-			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 50000000 * Number(geo.dirVec.lng);
+			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lat);
+			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lng);
 
 			c._latlng.lat = newLat % 90;
 			c._latlng.lng = newLng % 180;
