@@ -31,7 +31,8 @@ class Application(tornado.web.Application):
         def __init__(self):
                 handlers =      [
 
-                                (r"/", MainHandler),
+                                # (r"/", MainHandler),
+                                (r"/", MapBHandler),
 				(r"/geosounds", GeosoundsHandler),
 				(r"/inserttest", InsertTestHandler),
 				(r"/uploadaudio", UploadAudioHandler),

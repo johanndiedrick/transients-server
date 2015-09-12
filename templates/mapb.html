@@ -7,10 +7,12 @@
 
 	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
 	<link rel="stylesheet" href="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.css') }}" />
+	<link rel="stylesheet" href="{{ static_url('css/style.css') }}" />
 
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 
 	<script src="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.js') }}"></script>
+	<script src="{{ static_url('js/timeago.js') }}"></script>
 
 </head>
 
@@ -30,8 +32,8 @@
 
 		// url for web sockets etc
 		// var apiURL = '52.11.202.99:9000';
-		var apiURL = 'www.xn--vg8hjj.ws';
-		// var apiURL = 'localhost:9000';
+		// var apiURL = 'www.xn--vg8hjj.ws';
+		var apiURL = 'localhost:9000';
 
 		// load the map
 		window.onload = function() {
@@ -57,19 +59,11 @@
 			map.setView(loc, 13);
 
 			// temporary fun: use bounds to set random drift amount range
-			var bounds = map.getBounds();
-			var latMin = bounds._southWest.lat;
-			var latMax = bounds._northEast.lat;
-			var lngMin = bounds._southWest.lng;
-			var lngMax = bounds._northEast.lng;
-
-			// for (var i = 0; i < circles.length; i++) {
-			// 	var circle = circles[i];
-			// 	var positiveOrNegativeLat = Math.random() > 0.5 ? -1 : 1;
-			// 	var positiveOrNegativeLng = Math.random() > 0.5 ? -1 : 1;
-			// 	// circle.velocity.lat = positiveOrNegativeLat * Math.random() * (latMax - latMin) /2000;
-			// 	// circle.velocity.lng = positiveOrNegativeLng * Math.random() * (lngMax - lngMin) /2000;
-			// }
+			// var bounds = map.getBounds();
+			// var latMin = bounds._southWest.lat;
+			// var latMax = bounds._northEast.lat;
+			// var lngMin = bounds._southWest.lng;
+			// var lngMax = bounds._northEast.lng;
 
 		}
 
@@ -88,9 +82,14 @@
 			}).addTo(map);
 
 			map.on('popupopen', function(e){
+				map._currentGeoSound =  e.popup._source._geoSound;
+				map._currentPopUp = e.popup;
 
-				var clickLat = e.popup._latlng.lat;
-				var clickLng = e.popup._latlng.lng;
+				var popup = map._currentPopUp;
+				var geoSound = map._currentGeoSound;
+
+				var clickLat = popup._latlng.lat;
+				var clickLng = popup._latlng.lng;
 
 				// get the popup contents
 				var popupContent = document.getElementsByClassName('leaflet-popup-content')[0];
@@ -103,9 +102,25 @@
 
 				// update the lat/lng
 				var latSpan = popupContent.querySelector('.lat');
-				latSpan.innerHTML = clickLat;
+				latSpan.innerHTML = clickLat.toFixed(2);
 				var lngSpan = popupContent.querySelector('.lng');
-				lngSpan.innerHTML = clickLng;
+				lngSpan.innerHTML = clickLng.toFixed(2);
+
+				// update distance
+				var driftHTML = popupContent.querySelector('.drift-html');
+				if (!driftHTML) return;
+
+				var oLat = geoSound.originalPos.lat;
+				var oLng = geoSound.originalPos.lng;
+
+				driftHTML.innerHTML = "<h4 class='goback'>Back to Original Location: <span onclick='goToDriftOrigin(this)' data-lat='" + oLat + "'data-lng='" + oLng + "'>" + String(Number(oLat).toFixed(2)) + ", " + String(Number(oLng).toFixed(2)) + "</span></h4><p class='distance-traveled'>Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles</p>";
+
+			});
+
+			map.on('popupclose', function(e){
+				console.log('close');
+				map._currentGeoSound =  null;
+				map._currentPopUp = null;
 			});
 		}
 
@@ -144,6 +159,8 @@
 			var latDif = thisLoc['thrownLatitude'];
 			var lngDif = thisLoc['thrownLongitude'];
 
+			var driftHTML = ''
+
 			// vector change in lat/lng
 			var dirVec = {
 				lat: 0,
@@ -152,7 +169,6 @@
 
 			// factor in drifting direction (TO DO: velocity/time)
 			if (thisLoc.isDrifting) {
-
 				// reset to false, then true only if it is actually changing
 				thisLoc.isDrifting = false;
 
@@ -166,6 +182,9 @@
 				if (!isNaN(lngChange) && lngChange != 0) {
 					dirVec.lng = lngChange;
 					thisLoc.isDrifting = true;
+
+					// attach a polyLine to this geoSound
+					thisLoc.polyLine = initPolyLine(lat, lng, lat, lng);
 				}
 			}
 
@@ -177,17 +196,12 @@
 				fillOpacity: 0.5
 			});
 
-			// the location keeps track of the circle
+			// the geoSound keeps track of the circle, the circle keeps track of the geosound
 			thisLoc.circle = circle;
+			circle._geoSound = thisLoc;
 
 			// find mp3 url based on sound_url_mp3 (mp3 url)
 			var wavURL = thisLoc['sound_url_mp3'];
-			//var splitURL = wavURL.split('/')
-			//var wavFileName = splitURL.pop();
-			//wavFileName = wavFileName.replace('.wav', '.mp3');
-			//splitURL.push('mp3');
-			//splitURL.push(wavFileName);
-			//splitURL = splitURL.join('/');
 			thisLoc.mp3URL = wavURL;
 
 			// figure out direction
@@ -201,18 +215,30 @@
 				return this.circle._latlng;
 			}
 
+			if (thisLoc.isDrifting) {
+				driftHTML = "<span class='drift-html'></span>";
+			}
+
 			circles.push(circle);
 
-			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : '';
-			var date = typeof(thisLoc['date']) != 'undefined' ? thisLoc['date'] : '';
-			var wavURL = typeof(thisLoc['sound_url_mp3']) != 'undefined' ? thisLoc['sound_url_mp3'] : '';
+			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : thisLoc['description'];
 
-			
+			// stupidity checking in case there is not a title (depricated 9/10) or description
+			if (typeof(title) == 'undefined') {
+				title = '';
+			}
+
+			var date = typeof(thisLoc['date']) != 'undefined' ? $.timeago(new Date(thisLoc['date'])) : '';
+			// idiot checking
+			if (date.indexOf('NaN') > -1)	date = '';
+
+			var wavURL = typeof(thisLoc['sound_url_mp3']) != 'undefined' ? thisLoc['sound_url_mp3'] : '';
 
 			circle.bindPopup("<h1>"+title +"</h1><h3>"
 			 + date + "</h3>"
-		 	 + wavURL 
-			 + "<h4><span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
+		 	 // + wavURL 
+			 + "<h4>Current Location: <span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
+			 + driftHTML
 			 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
 			circle.addTo(map);
 		}
@@ -226,48 +252,32 @@
 
 			var seconds = Math.round(timestamp / 1000);
 			var radiusChange = seconds % 2 ? -0.2 : 0.2;
-
 			var now = new Date();
 
 			for (var i = 0; i < geoSounds.length; i++) {
 				var geo = geoSounds[i];
 				var c = geo.circle;
+				var elapsedTime = (now - geo.originalDate);
 
 				geo.circle._mRadius += radiusChange;
 
 				// drift
 				if (geo.isDrifting) {
-					var elapsedTime = (now - geo.originalDate);
-
-					 newLng
-					var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lat);
-					var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lng);
-
-					c._latlng.lat = newLat % 90;
-					c._latlng.lng = newLng % 180;
-
-					// border checking to make sure they dont get caught
-					if (c._latlng.lng >= 180) {
-						c._latlng.lng = -179;
-					}
-					if (c._latlng.lng <= -180) {
-						c._latlng.lng = 179;
-					}
-					if (c._latlng.lat >= 90) {
-						c._latlng.lat = -89;
-					}
-					if (c._latlng.lat <= -90) {
-						c._latlng.lat = 89;
-					}
-
+					calculateDrift(geo, c, elapsedTime);
 				};
 
 				c.redraw();
 			}
 
+			if (map._currentPopUp) {
+				updatePopup();
+			}
+
 			window.requestAnimationFrame(step);
 		}
+		// init animation loop
 		window.requestAnimationFrame(step);
+
 
 		// WEB SOCKETS
 		function initWebSockets() {
@@ -298,11 +308,11 @@
 
 
 		function flashMessage(geoSound) {
-			    $( "#dialog" ).dialog( "open" );
+			$( "#dialog" ).dialog( "open" );
 
-			    window.setTimeout(function() {
-				    $( "#dialog" ).dialog( "close" );
-			    }, 2000);
+			window.setTimeout(function() {
+				$( "#dialog" ).dialog( "close" );
+			}, 2000);
 
 		}
 
@@ -329,6 +339,150 @@
 			  });
 			});
 		}
+
+		function calculateDrift(geo, c, elapsedTime) {
+
+			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lat);
+			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lng);
+
+			c._latlng.lat = newLat % 90;
+			c._latlng.lng = newLng % 180;
+
+			// border checking to make sure they dont get caught
+			if (c._latlng.lng >= 180) {
+				c._latlng.lng = -179;
+			}
+			if (c._latlng.lng <= -180) {
+				c._latlng.lng = 179;
+			}
+			if (c._latlng.lat >= 90) {
+				c._latlng.lat = -89;
+			}
+			if (c._latlng.lat <= -90) {
+				c._latlng.lat = 89;
+			}
+
+			updatePolyLine(geo.polyLine, c._latlng.lat, c._latlng.lng);
+		}
+
+		// init a line from original(o) to current(c)
+		function initPolyLine(oLat, oLng, cLat, cLng) {
+			var pointA = new L.LatLng(oLat, oLng);
+			var pointB = new L.LatLng(cLat, cLng);
+
+			// var pointList = [pointA, pointB];
+			var pointList = [pointA];
+
+			var polyLine = new L.Polyline(pointList, {
+				color: '#5981E6',
+				weight: 4,
+				opacity: 0.7,
+				smoothFactor: 1,
+				dashArray: "5, 5",
+				clickable: true
+			});
+
+			//on click, go to location
+			polyLine.on('click', function(e) {
+				map.setView(e.target._latlngs[1], 6);
+			});
+
+			polyLine.addTo(map);
+			return polyLine
+		}
+
+		function updatePolyLine(polyLine, cLat, cLng) {
+			var newPointB = new L.LatLng(cLat, cLng);
+
+			polyLine._latlngs[1] = newPointB;
+
+			polyLine.redraw();
+		}
+
+		// when popup for a drifter is clicked, go to the original location
+		function goToDriftOrigin(elem) {
+			map._currentPopUp._close();
+			var lat = elem.getAttribute('data-lat');
+			var lng = elem.getAttribute('data-lng');
+
+			var originPoint = new L.LatLng(lat, lng);
+
+			map.setView(originPoint, 13)
+		}
+
+		// via http://www.geodatasource.com/developers/javascript  // returns Miles by default
+		function calcDistance(loc) {
+			var cLat = loc.circle._latlng.lat;
+			var cLng = loc.circle._latlng.lng;
+			var oLat = loc.originalPos.lat;
+			var oLng = loc.originalPos.lng;
+			return calculateDistance(oLat, oLng, cLat, cLng);
+		}
+
+		function calculateDistance(lat1, lon1, lat2, lon2, unit) {
+			var radlat1 = Math.PI * lat1/180
+			var radlat2 = Math.PI * lat2/180
+			var radlon1 = Math.PI * lon1/180
+			var radlon2 = Math.PI * lon2/180
+			var theta = lon1-lon2
+			var radtheta = Math.PI * theta/180
+			var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+			dist = Math.acos(dist)
+			dist = dist * 180/Math.PI
+			dist = dist * 60 * 1.1515
+			if (unit=="K") { dist = dist * 1.609344 }
+			if (unit=="N") { dist = dist * 0.8684 }
+			return dist
+		}
+
+		// via http://stackoverflow.com/a/27943/2994108
+		// function calculateDistance(lat1,lon1,lat2,lon2) {
+		//   var R = 6371; // Radius of the earth in km
+		//   var dLat = deg2rad(lat2-lat1);  // deg2rad below
+		//   var dLon = deg2rad(lon2-lon1); 
+		//   var a = 
+		//     Math.sin(dLat/2) * Math.sin(dLat/2) +
+		//     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+		//     Math.sin(dLon/2) * Math.sin(dLon/2)
+		//     ; 
+		//   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+		//   var d = R * c; // Distance in km
+		//   return d;
+		// }
+
+		// function deg2rad(deg) {
+		//   return deg * (Math.PI/180)
+		// }
+
+
+
+		// called during drawloop if a popup is open
+			function updatePopup() {
+				var popup = map._currentPopUp;
+				var geoSound = map._currentGeoSound;
+
+				var lat = geoSound.circle._latlng.lat;
+				var lng = geoSound.circle._latlng.lng;
+
+				// get the popup contents
+				var popupContent = document.getElementsByClassName('leaflet-popup-content')[0];
+
+				// update the lat/lng
+				var latSpan = popupContent.querySelector('.lat');
+				latSpan.innerHTML = lat.toFixed(5);
+				var lngSpan = popupContent.querySelector('.lng');
+				lngSpan.innerHTML = lng.toFixed(5);
+
+				// update distance
+				var distanceTraveled = popupContent.querySelector('.distance-traveled');
+				if (!distanceTraveled) return;
+
+				distanceTraveled.innerHTML = "Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles";
+
+				popup.setLatLng([lat, lng])
+			}
+
+
 	</script>
 
 	<div id="dialog" title="New Sound">
