@@ -340,7 +340,7 @@
 			var d = $( "#dialog" ).dialog;
 			var msg = $('#msg')[0];
 			msg.innerHTML = someText;
-			d.dialog( "open" );
+			d( "open" );
 
 			window.setTimeout(function() {
 				$( "#dialog" ).dialog( "close" );
