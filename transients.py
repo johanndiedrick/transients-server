@@ -126,7 +126,6 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 			# k.set_contents_from_file()
 			k.set_contents_from_string( mp3body )#, cb=self.mycb(), num_cb=1000)
 
-			print('made it this far')
 			k.set_acl('public-read') #makes wav public
 
 			print('uploaded')
