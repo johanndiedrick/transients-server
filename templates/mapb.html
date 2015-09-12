@@ -37,6 +37,11 @@
 		var debugDiv;
 		var autoPlayOnPopup = true;
 
+		// check for new geoSounds every 15 seconds
+		var numberOfGeoSoundsInDatabase = 0;
+		var lastCheck = 0;
+		var secondsBeforeRefresh = 15;
+
 		// url for web sockets etc
 		// var apiURL = '52.11.202.99:9000';
 		var apiURL = 'www.xn--vg8hjj.ws';
@@ -134,6 +139,7 @@
 		//receive geoSounds. Create a geoSounds array that will contain data from the db as well as leaflet circles
 		$.getJSON('http://' + apiURL + '/geosounds', function(data) {
 			geoSounds = data['geosounds'];
+			numberOfGeoSoundsInDatabase = geoSounds.length;
 
 			for (i = 0; i < geoSounds.length; i++) {
 				var thisLoc = geoSounds[i];
@@ -157,6 +163,19 @@
 
 		});
 
+
+		function checkForNewGeoSounds() {
+			console.log('checking for new');
+			$.getJSON('http://' + apiURL + '/geosounds', function(data) {
+				var newGeoSounds = data['geosounds'];
+				if (newGeoSounds.length > numberOfGeoSoundsInDatabase) {
+					var newSound = newGeoSounds.pop();
+					flashMessage('<p>A new sound was added: </p><h2>' + newSound.description + '</h2>');
+					addGeoSound(newSound);
+					geoSounds.push(newSound);
+				}
+			});
+		}
 
 		function addGeoSound(thisLoc) {
 
@@ -277,6 +296,17 @@
 
 		function step(timestamp) {
 			var bounds = map.getBounds();
+
+			// first time
+			if (lastCheck === 0) {
+				lastCheck = timestamp;
+			}
+
+			// update if more than 15 seconds have passed
+			if ( lastCheck > 0 && (timestamp - lastCheck) / 1000 > secondsBeforeRefresh) {
+				checkForNewGeoSounds();
+				lastCheck = timestamp;
+			}
 
 			var seconds = Math.round(timestamp / 1000);
 			var radiusChange = seconds % 2 ? -0.2 : 0.2;
