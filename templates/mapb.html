@@ -337,10 +337,10 @@
 
 
 		function flashMessage(someText) {
-			var d = $( "#dialog" ).dialog;
+			var d = $( "#dialog" );
 			var msg = $('#msg')[0];
 			msg.innerHTML = someText;
-			d( "open" );
+			d.dialog( "open" );
 
 			window.setTimeout(function() {
 				$( "#dialog" ).dialog( "close" );
