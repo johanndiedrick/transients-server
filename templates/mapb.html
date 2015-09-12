@@ -320,8 +320,9 @@
 
 				// add a new sound
 				if (data.newSound) {
-					flashMessage('new sound was added');
+					flashMessage('<p>A new sound was added: </p><h2>' + data.newSound.description + '</h2>');
 					addGeoSound(data.newSound);
+					geoSounds.push(geoSound);
 				}
 
 				else if (data.newSounds) {
@@ -335,8 +336,11 @@
 		}
 
 
-		function flashMessage(geoSound) {
-			$( "#dialog" ).dialog( "open" );
+		function flashMessage(someText) {
+			var d = $( "#dialog" ).dialog;
+			var msg = $('#msg')[0];
+			msg.innerHTML = someText;
+			d.dialog( "open" );
 
 			window.setTimeout(function() {
 				$( "#dialog" ).dialog( "close" );
@@ -531,7 +535,7 @@
 	</script>
 
 	<div id="dialog" title="New Sound">
-	  <p>A new sound was added!</p>
+		<span id="msg"></span>
 	</div>
 	 
 	<button id="opener">Open Dialog</button>
