@@ -39,8 +39,8 @@
 
 		// url for web sockets etc
 		// var apiURL = '52.11.202.99:9000';
-		// var apiURL = 'www.xn--vg8hjj.ws';
-		var apiURL = 'localhost:9000';
+		var apiURL = 'www.xn--vg8hjj.ws';
+		// var apiURL = 'localhost:9000';
 
 		// load the map
 		window.onload = function() {
@@ -213,7 +213,10 @@
 
 			// figure out direction
 			thisLoc.dirVec = dirVec;
-			thisLoc.originalDate = new Date(thisLoc.date + ' ' + thisLoc.time);
+			var d = typeof(thisLoc.date) != 'undefined' ? thisLoc['date'] : '';
+			var t = typeof(thisLoc.time) != 'undefined' ? ' ' + thisLoc['time'] : '';
+
+			thisLoc.originalDate = new Date(d + t);
 			thisLoc.originalPos = {
 				'lat': pos[0],
 				'lng': pos[1]
@@ -235,9 +238,14 @@
 				title = '';
 			}
 
-			var date = typeof(thisLoc['date']) != 'undefined' ? $.timeago(new Date(thisLoc['date'])) : '';
+			// var date = typeof(thisLoc['date']) != 'undefined' ? $.timeago(new Date(thisLoc['date'])) : '';
+			var date = thisLoc.originalDate;
 			// idiot checking
-			if (date.indexOf('NaN') > -1)	date = '';
+			if (date	== 'Invalid Date') {
+				date = '';
+			} else {
+				date = $.timeago(date);
+			}
 
 			var wavURL = typeof(thisLoc['sound_url_mp3']) != 'undefined' ? thisLoc['sound_url_mp3'] : '';
 
@@ -394,8 +402,8 @@
 
 		function calculateDrift(geo, c, elapsedTime) {
 
-			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lat);
-			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 1000000 * Number(geo.dirVec.lng);
+			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 50000000 * Number(geo.dirVec.lat);
+			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 50000000 * Number(geo.dirVec.lng);
 
 			c._latlng.lat = newLat % 90;
 			c._latlng.lng = newLng % 180;
@@ -454,7 +462,6 @@
 		function goToGeoSound(geoSound) {
 			var currentLoc = geoSound.getCurrentLocation();
 			map.panTo(currentLoc, 14);
-			console.log(geoSound.circle._popup);
 			geoSound.circle.openPopup();
 		}
 
