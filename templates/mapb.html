@@ -113,7 +113,7 @@
 				var oLat = geoSound.originalPos.lat;
 				var oLng = geoSound.originalPos.lng;
 
-				driftHTML.innerHTML = "<h4 class='goback'>Back to Original Location: <span onclick='goToDriftOrigin(this)' data-lat='" + oLat + "'data-lng='" + oLng + "'>" + String(Number(oLat).toFixed(2)) + ", " + String(Number(oLng).toFixed(2)) + "</span></h4><p class='distance-traveled'>Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles</p>";
+				driftHTML.innerHTML = "<h4 class='goback' onclick='goToDriftOrigin(this)' data-lat='" + oLat + "'data-lng='" + oLng + "'>Back to Original Location: " + String(Number(oLat).toFixed(2)) + ", " + String(Number(oLng).toFixed(2)) + "</h4><p class='distance-traveled'>Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles</p>";
 
 			});
 
