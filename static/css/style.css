@@ -66,3 +66,9 @@
 	margin:0px;
 	/*line-height:0px;*/
 }
+
+@media only screen and (max-device-width: 480px) {
+	#searchresults {
+		display: none;
+	}
+}

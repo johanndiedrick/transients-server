@@ -18,7 +18,7 @@
 
 <body>
 	<div id="top-nav">
-		<input id="searchbox" placeholder="search">
+		<input id="searchbox" placeholder="search" class="">
 		<div id="searchresults">
 			<ul class="geosounds"></ul>
 		</div>
@@ -236,8 +236,7 @@
 			// figure out direction
 			thisLoc.dirVec = dirVec;
 			var d = typeof(thisLoc.date) != 'undefined' ? thisLoc['date'] : '';
-			var t = typeof(thisLoc.time) != 'undefined' ? ' ' + thisLoc['time'] : '';
-
+			var t = typeof(thisLoc.time) != 'undefined' ? 'T' + thisLoc['time'] : '';
 			thisLoc.originalDate = new Date(d + t);
 			thisLoc.originalPos = {
 				'lat': pos[0],
@@ -385,25 +384,30 @@
 
 		function initJqueryUI() {
 			$(function() {
-			  $( "#dialog" ).dialog({
-			    autoOpen: false,
-			    show: {
-			      effect: "blind",
-			      duration: 500
-			    },
-			    hide: {
-			      effect: "explode",
-			      duration: 1000
-			    }
-			  });
+				$( "#dialog" ).dialog({
+				  autoOpen: false,
+				  show: {
+				    effect: "blind",
+				    duration: 500
+				  },
+				  hide: {
+				    effect: "explode",
+				    duration: 1000
+				  }
+				});
 			
-			  $( "#opener" ).click(function() {
-			    $( "#dialog" ).dialog( "open" );
+				$( "#opener" ).bind('touchstart mousedown', function(event) {
+				  $( "#dialog" ).dialog( "open" );
 
-			    window.setTimeout(function() {
+				  window.setTimeout(function() {
 				    $( "#dialog" ).dialog( "close" );
-			    }, 2000);
-			  });
+				  }, 2000);
+				});
+
+				// make search box div collapsable
+				$( '#searchresults').bind('touchstart mousedown', function() {
+
+				});
 			});
 
 			initSearchBox();
@@ -440,7 +444,6 @@
 
 
 		function calculateDrift(geo, c, elapsedTime) {
-
 			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lat);
 			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lng);
 
@@ -491,6 +494,11 @@
 		}
 
 		function updatePolyLine(polyLine, cLat, cLng) {
+			if (isNaN(cLat) || isNaN(cLng)) {
+				return;
+			} else {
+				console.log(cLat, cLng);
+			}
 			var newPointB = new L.LatLng(cLat, cLng);
 
 			polyLine._latlngs[1] = newPointB;
@@ -573,7 +581,7 @@
 		<span id="msg"></span>
 	</div>
 	 
-	<button id="opener">Open Dialog</button>
+	<!-- <button id="opener">Open Dialog</button> -->
 </body>
 </html>
 
