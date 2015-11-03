@@ -156,14 +156,15 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 
 
 		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
-		sound['date'] = datetime.datetime.utcnow()
 
-		# sound['time'] = data_json['time']
+		sound['datetime'] = datetime.datetime.utcnow()
+
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
 		sound['isDrifting'] = data_json['isDrifting']
 		sound['thrownLatitude'] = data_json['thrownLatitude']
 		sound['thrownLongitude'] = data_json['thrownLongitude']
+
 
 		# send the new sound to all connected clients
 		for c in cl:
