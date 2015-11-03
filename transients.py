@@ -148,8 +148,16 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound = dict()
 		sound['latitude'] = data_json['latitude']
 		sound['longitude'] = data_json['longitude']
+
+		#geojson is stored as lng / lat
+		lat = sound['latitude']
+		lng = sound['longitude']
+		geosound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
+
+
 		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
-		sound['date'] = datetime.utcnow
+		sound['date'] = datetime.datetime.utcnow()
+
 		# sound['time'] = data_json['time']
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
@@ -170,31 +178,71 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 
 # find geosounds near me
 class FindSoundsNearMe(tornado.web.RequestHandler):
+	@tornado.web.asynchronous
+	@tornado.gen.coroutine
 	def get(self):
-		lat=self.get_argument("lat", '', True)
-		lng=self.get_argument("lng", '', True)
+		nearby_sounds = []
+
+		lat=self.get_argument("lat", 40.730, True)
+		lng=self.get_argument("lng", -73.96, True)
+
+		# filter out sounds that the user has heard
 		user=self.get_argument("user", '', True)
 
-		self.application.db.geosounds.find({''})
-		self.write("lat: " + lat +", lng: " + lng +", user: " + user)
+		# self.write("lat: " + lat +", lng: " + lng +", user: " + user)
 
-# utility
+		coll = self.application.db.geosounds
+
+		# TO DO: add filter for sounds this user hasnt heard
+		cursor = coll.find(
+			{"loc.coordinates":
+				{ "$geoNear" :
+					{
+						"$geometry": {
+							"type": "Point",
+							"coordinates": [ float(lng), float(lat) ]
+						},
+						"$maxDistance": 1700
+					}
+				}
+			}
+		).limit(10)
+
+		while (yield cursor.fetch_next):
+			geosound = cursor.next_object()
+			nearby_sounds.append(geosound)
+
+		data = { "geosounds" : nearby_sounds }
+		self.write(json.dumps(data, default=json_util.default)) #write json
+
+
+# utility to clean up a field. Used to add geoJSON point
 class MakeDBGeospatial(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	@tornado.gen.coroutine
 	def get(self):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		snd_count = 0
-		cursor = self.application.db.geosounds.find({'latitude': {'$exists': True} })
+		coll = self.application.db.geosounds
+		cursor = coll.find({'latitude': {'$exists': True} })
 
 		while (yield cursor.fetch_next):
 			geosound = cursor.next_object()
-			snd_count = snd_count + 1
-			
 
-			# update item in db
-			# yield self.application.db.geosounds.update({'_id': geosound['_id']},
-			# 	{'$set': {'x': 1}})
+			# only update if 'loc' field doesnt exist
+			if ('loc' in geosound.keys() ):
+				continue
+
+			lat = geosound['latitude']
+			lng = geosound['longitude']
+
+			geosound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
+
+			print geosound
+			yield coll.save(geosound)
+
+			snd_count = snd_count + 1
+			print('updated')
 
 		self.write("number: " + str(snd_count))
 
