@@ -155,6 +155,7 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['thrownLatitude'] = data_json['thrownLatitude']
 		sound['thrownLongitude'] = data_json['thrownLongitude']
 
+
 		# send the new sound to all connected clients
 		for c in cl:
 			c.write_message(json.dumps({'newSound': sound}, default=json_util.default))
