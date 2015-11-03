@@ -152,7 +152,7 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		#geojson is stored as lng / lat
 		lat = sound['latitude']
 		lng = sound['longitude']
-		geosound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
+		sound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
 
 
 		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
