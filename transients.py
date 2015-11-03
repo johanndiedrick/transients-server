@@ -190,6 +190,9 @@ class FindSoundsNearMe(tornado.web.RequestHandler):
 		# filter out sounds that the user has heard
 		user=self.get_argument("user", '', True)
 
+		limit=self.get_argument("limit", 10, True)
+		limit = int(limit)
+
 		# self.write("lat: " + lat +", lng: " + lng +", user: " + user)
 
 		coll = self.application.db.geosounds
@@ -207,7 +210,7 @@ class FindSoundsNearMe(tornado.web.RequestHandler):
 					}
 				}
 			}
-		).limit(10)
+		).limit(limit)
 
 		while (yield cursor.fetch_next):
 			geosound = cursor.next_object()
