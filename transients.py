@@ -40,7 +40,9 @@ class Application(tornado.web.Application):
 				(r"/map", MapHandler),
 				(r"/newmap", NewMapHandler),
 				(r"/mapb", MapBHandler),
-				(r"/websocket", EchoWebSocketHandler)
+				(r"/websocket", EchoWebSocketHandler),
+				(r"/nearbysounds", FindSoundsNearMe),
+				(r"/cleanup", MakeDBGeospatial)
 
 
                                 ]
@@ -165,6 +167,38 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 
 	def get(self):
 		self.write("Ready to upload JSON")
+
+# find geosounds near me
+class FindSoundsNearMe(tornado.web.RequestHandler):
+	def get(self):
+		lat=self.get_argument("lat", '', True)
+		lng=self.get_argument("lng", '', True)
+		user=self.get_argument("user", '', True)
+
+		self.application.db.geosounds.find({''})
+		self.write("lat: " + lat +", lng: " + lng +", user: " + user)
+
+# utility
+class MakeDBGeospatial(tornado.web.RequestHandler):
+	@tornado.web.asynchronous
+	@tornado.gen.coroutine
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		snd_count = 0
+		cursor = self.application.db.geosounds.find({'latitude': {'$exists': True} })
+
+		while (yield cursor.fetch_next):
+			geosound = cursor.next_object()
+			snd_count = snd_count + 1
+			
+
+			# update item in db
+			# yield self.application.db.geosounds.update({'_id': geosound['_id']},
+			# 	{'$set': {'x': 1}})
+
+		self.write("number: " + str(snd_count))
+
+		self.finish
 
 # websocket handler
 class EchoWebSocketHandler(tornado.websocket.WebSocketHandler):
