@@ -32,7 +32,7 @@ class Application(tornado.web.Application):
                 handlers =      [
 
                                 # (r"/", MainHandler),
-                                (r"/", MapBHandler),
+                                (r"/", StreamHandler),
 				(r"/geosounds", GeosoundsHandler),
 				(r"/inserttest", InsertTestHandler),
 				(r"/uploadaudio", UploadAudioHandler),
@@ -103,6 +103,11 @@ class MapBHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("mapb.html", mapbox_public_key=mapbox_public_key)
+
+class StreamHandler(tornado.web.RequestHandler):
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		self.render("t-stream.html", mapbox_public_key=mapbox_public_key)
 
 class UploadAudioHandler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
