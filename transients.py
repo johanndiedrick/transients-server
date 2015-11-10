@@ -187,6 +187,7 @@ class FindSoundsNearMe(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	@tornado.gen.coroutine
 	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
 		nearby_sounds = []
 
 		lat=self.get_argument("lat", 40.730, True)
