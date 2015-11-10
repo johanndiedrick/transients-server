@@ -40,7 +40,9 @@ class Application(tornado.web.Application):
 				(r"/map", MapHandler),
 				(r"/newmap", NewMapHandler),
 				(r"/mapb", MapBHandler),
-				(r"/websocket", EchoWebSocketHandler)
+				(r"/websocket", EchoWebSocketHandler),
+				(r"/nearbysounds", FindSoundsNearMe),
+				(r"/cleanup", MakeDBGeospatial)
 
 
                                 ]
@@ -151,14 +153,23 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound = dict()
 		sound['latitude'] = data_json['latitude']
 		sound['longitude'] = data_json['longitude']
+
+		#geojson is stored as lng / lat
+		lat = sound['latitude']
+		lng = sound['longitude']
+		sound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
+
+
 		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
-		sound['date'] = datetime.utcnow
-		# sound['time'] = data_json['time']
+
+		sound['datetime'] = datetime.datetime.utcnow()
+
 		sound['description'] = data_json['description']
 		sound['tags'] = data_json['tags']
 		sound['isDrifting'] = data_json['isDrifting']
 		sound['thrownLatitude'] = data_json['thrownLatitude']
 		sound['thrownLongitude'] = data_json['thrownLongitude']
+
 
 		# send the new sound to all connected clients
 		for c in cl:
@@ -170,6 +181,81 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 
 	def get(self):
 		self.write("Ready to upload JSON")
+
+# find geosounds near me
+class FindSoundsNearMe(tornado.web.RequestHandler):
+	@tornado.web.asynchronous
+	@tornado.gen.coroutine
+	def get(self):
+		nearby_sounds = []
+
+		lat=self.get_argument("lat", 40.730, True)
+		lng=self.get_argument("lng", -73.96, True)
+
+		# filter out sounds that the user has heard
+		user=self.get_argument("user", '', True)
+
+		limit=self.get_argument("limit", 10, True)
+		limit = int(limit)
+
+		# self.write("lat: " + lat +", lng: " + lng +", user: " + user)
+
+		coll = self.application.db.geosounds
+
+		# TO DO: add filter for sounds this user hasnt heard
+		cursor = coll.find(
+			{"loc.coordinates":
+				{ "$geoNear" :
+					{
+						"$geometry": {
+							"type": "Point",
+							"coordinates": [ float(lng), float(lat) ]
+						},
+						"$maxDistance": 1700
+					}
+				}
+			}
+		).limit(limit)
+
+		while (yield cursor.fetch_next):
+			geosound = cursor.next_object()
+			nearby_sounds.append(geosound)
+
+		data = { "geosounds" : nearby_sounds }
+		self.write(json.dumps(data, default=json_util.default)) #write json
+
+
+# utility to clean up a field. Used to add geoJSON point
+class MakeDBGeospatial(tornado.web.RequestHandler):
+	@tornado.web.asynchronous
+	@tornado.gen.coroutine
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		snd_count = 0
+		coll = self.application.db.geosounds
+		cursor = coll.find({'latitude': {'$exists': True} })
+
+		while (yield cursor.fetch_next):
+			geosound = cursor.next_object()
+
+			# only update if 'loc' field doesnt exist
+			if ('loc' in geosound.keys() ):
+				continue
+
+			lat = geosound['latitude']
+			lng = geosound['longitude']
+
+			geosound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
+
+			print geosound
+			yield coll.save(geosound)
+
+			snd_count = snd_count + 1
+			print('updated')
+
+		self.write("number: " + str(snd_count))
+
+		self.finish
 
 # websocket handler
 class EchoWebSocketHandler(tornado.websocket.WebSocketHandler):
