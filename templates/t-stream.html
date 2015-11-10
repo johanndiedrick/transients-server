@@ -7,6 +7,11 @@
 	<link rel="stylesheet" href="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.css') }}" />
 	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 	<script src="{{ static_url('js/timeago.js') }}"></script>
+	<script src="{{ static_url('js/leaflet.js') }}"></script>
+
+	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
+	<link rel="stylesheet" href="{{ static_url('css/style.css') }}" />
+
 
 	<script>
 
@@ -24,11 +29,15 @@
 			var apiURL = 'localhost:9000';
 
 			// coordinates
-			var coords = {};
+			var coords = {
+				// 'lat': 74
+			};
 
 			// playlist object class / data
 			var playlistObject = function(data) {
 				this._id = data._id;
+				this.desc = data.description ? data.description : '';
+				this.datetime = data.datetime || data.date;
 				this.loc = data.loc;
 				this.src = data.sound_url_mp3;
 				this.liked = false;
@@ -66,12 +75,13 @@
 
 			window.onload = function() {
 				resetAudioDecks();
+				initMap();
 				navigator.geolocation.getCurrentPosition(locationSuccess, locationError);
 			};
 
 			function loadSounds(limit, lat, lng) {
-				$.getJSON('http://' + apiURL + '/nearbysounds?limit=' + limit + '&lat=' + lat + '&lng='+lng, function(data) {
-
+				// $.getJSON('http://' + apiURL + '/nearbysounds?limit=' + limit + '&lat=' + lat + '&lng='+lng, function(data) {
+				$.getJSON('http://' + apiURL + '/nearbysounds?limit=' + limit, function(data) {
 					data.geosounds.forEach(function(geosound) {
 						unplayedList.push( new playlistObject( geosound) );
 					});
@@ -89,12 +99,14 @@
 				});
 
 				emptyDecks.forEach(function(deck) {
-					while (_unplayedList[uIndex].cued) {
+					var geosound = _unplayedList[uIndex]
+					while (geosound.cued) {
 						uIndex++;
 					}
-					deck.src = _unplayedList[uIndex].src;
+					geosound.cued = true;
+					deck.geosound = geosound;
+					deck.src = geosound.src;
 					deck.load();
-					_unplayedList[uIndex].cued = true;
 					uIndex++;
 				});
 
@@ -105,21 +117,77 @@
 			function cueNext(deckIndex) {
 				var deck = audioDecks[deckIndex];
 				deck.src = unplayedList[0].src;
+				deck.geosound = unplayedList[0];
 				unplayedList[0].cued = true;
 
 				// play next
 				var nextDeck = audioDecks[ deckIndex++ % audioDecks.length ];
 				nextDeck.play();
+
+				// to do: optimize this
+				displayTransient( nextDeck );
+
 			}
 
 			function locationSuccess(pos) {
 				coords.lat = pos.coords.latitude;
 				coords.lng = pos.coords.longitude;
+				map.setView([coords.lat, coords.lng], 13);
+
+				// add points to map
+				mapPoints.sound = L.circle( [coords.lat, coords.lng], 50, {
+					color: 'green',
+					fillColor: 'green',
+					fillOpacity: 1.0
+				});
+				mapPoints.sound.addTo(map);
+
+				// add yourself to map
+				mapPoints.you = L.circle( [coords.lat, coords.lng], 50, {
+					color: 'yellow',
+					fillColor: 'yellow',
+					fillOpacity: 1.0
+				});
+				mapPoints.you.addTo(map);
+
 				loadSounds(20, coords.lat, coords.lng);
 			}
 
 			function locationError(err) {
 				console.log(err);
+			}
+
+			function displayTransient(deck) {
+				console.log(deck.geosound.src);
+				console.log(deck.src);
+				$('#datetime').text( $.timeago( new Date(deck.geosound.datetime) ));
+				$('#description').text(deck.geosound.desc);
+
+				map.setView(new L.LatLng(deck.geosound.loc.coordinates[1], deck.geosound.loc.coordinates[0]), 20);
+				mapPoints.sound._latlng.lat = deck.geosound.loc.coordinates[1];
+				mapPoints.sound._latlng.lng = deck.geosound.loc.coordinates[0];
+				mapPoints.sound.redraw();
+			}
+
+
+			// map
+			var map;
+			var mapPoints = {
+				you: null,
+				sound: null
+			}
+
+			function initMap() {
+				map = L.map('map');
+
+				L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={{mapbox_public_key}}', {
+					attribution: 'Map Data!',
+					maxZoom: 18,
+					continuousWorld: false,
+					noWrap: true,
+					id: 'transients.de92d381',
+					accessToken: '{{mapbox_public_key}}'
+				}).addTo(map);
 			}
 
 	</script>
@@ -129,11 +197,14 @@
 <body>
 
 	<div class="now-playing container">
-		<h1 id="description"></h1>
-		<h1 id="datetime"></h1>
+		<h1>Description:  <span id="description"></span></h1>
+		<h1>Recorded <span id="datetime"></span></h1>
 
 	</div>
 
+	<div id="map-container" style="width:100%; height: 75%">
+		<div id="map" style="width: 100%; height: 100%;"></div>
+	</div>
 
 </body>
 
