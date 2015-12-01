@@ -43,7 +43,7 @@
 
       	google.maps.event.addListener(marker, 'click', (function(marker, i) {
         return function() {
-	infowindow.setContent("<audio src='" + locations[i]['sound_url'] + "' preload=''auto' controls><audio>");
+	infowindow.setContent("<audio src='" + locations[i]['sound_url_mp3'] + "' preload=''auto' controls><audio>");
 	infowindow.open(map, marker);
         }
       		})(marker, i));
