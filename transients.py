@@ -35,7 +35,8 @@ class Application(tornado.web.Application):
                                 (r"/", StreamHandler),
 				(r"/geosounds", GeosoundsHandler),
 				(r"/inserttest", InsertTestHandler),
-				(r"/uploadaudio", UploadAudioHandler),
+				(r"/uploadmp3", UploadMp3Handler),
+				(r"/uploadwav", UploadWavHandler),
 				(r"/uploadjson", UploadJSONHandler),
 				(r"/map", MapHandler),
 				(r"/newmap", NewMapHandler),
@@ -111,7 +112,7 @@ class StreamHandler(tornado.web.RequestHandler):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.render("t-stream.html", mapbox_public_key=mapbox_public_key)
 
-class UploadAudioHandler(tornado.web.RequestHandler):
+class UploadMp3Handler(tornado.web.RequestHandler):
 	#this class post action receives a wav file and uploads the file to amazon s3
 	def post(self):
 			mp3 = self.request.files['mp3'][0] #wav post data from form
@@ -142,6 +143,37 @@ class UploadAudioHandler(tornado.web.RequestHandler):
 
 	def get(self):
 		self.render('uploadmp3.html')
+
+class UploadWavHandler(tornado.web.RequestHandler):
+	#this class post action receives a wav file and uploads the file to amazon s3
+	def post(self):
+			wav = self.request.files['wav'][0] #wav post data from form
+
+			wavbody = wav['body'] #body of wav file
+			wavname = wav['filename'] #wav name and path
+
+			conn = S3Connection(aws_public_key, aws_secret_key)
+			bucket = conn.get_bucket('transients-wav') #bucket for wavs
+
+			k = Key(bucket) #key associated with wav bucket
+
+			filename = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + ".wav"
+
+			k.key = filename #sets key to file name
+
+			k.set_metadata("Content-Type", "audio/wav") #sets metadata for audio/wav
+
+			# k.set_contents_from_file()
+			k.set_contents_from_string( wavbody )#, cb=self.mycb(), num_cb=1000)
+
+			k.set_acl('public-read') #makes wav public
+
+			print('uploaded')
+			# return
+			self.write({"success": True, "filename": filename })
+
+	def get(self):
+		self.render('uploadwav.html')
 
 class UploadJSONHandler(tornado.web.RequestHandler):
 	def post(self):
