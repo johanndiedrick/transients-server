@@ -1,5 +1,6 @@
 #ssh into amazon s3 instance
-ssh -i ~/.ssh/transients-keypair.pem ec2-user@52.11.202.99 << EOF
+# OLD: ssh -i ~/.ssh/transients-keypair.pem ec2-user@52.11.202.99 << EOF
+ssh -i ~/.ssh/transients-keypair.pem ec2-user@ec2-52-11-57-55.us-west-2.compute.amazonaws.com << EOF
 
 cd transients/dev/transients-server/ 
 
