@@ -8,7 +8,7 @@ import tornado.gen
 import tornado.web
 import motor
 import tornado.websocket
-from transients_globals import aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, transients_s3_base_url, mapbox_public_key, mapbox_secret_key
+from transients_globals import transients_mp3_bucket, aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, transients_s3_base_url, mapbox_public_key, mapbox_secret_key
 
 from bson import json_util
 import json
@@ -121,7 +121,7 @@ class UploadMp3Handler(tornado.web.RequestHandler):
 			mp3name = mp3['filename'] #wav name and path
 
 			conn = S3Connection(aws_public_key, aws_secret_key)
-			bucket = conn.get_bucket('transients-mp3') #bucket for wavs
+			bucket = conn.get_bucket(transients_mp3_bucket) #bucket for wavs
 
 			k = Key(bucket) #key associated with wav bucket
 
