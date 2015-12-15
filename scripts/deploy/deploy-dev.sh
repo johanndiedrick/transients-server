@@ -12,6 +12,6 @@ git pull
 
 cd /home/ec2-user/supervisor
 
-supervisorctl restart transients
+supervisorctl restart all
 
 EOF
