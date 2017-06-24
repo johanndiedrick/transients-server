@@ -1,0 +1,591 @@
+<html>
+<head>
+	<title>Transients Mapb</title>
+	<meta charset="utf-8" />
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
+	<link rel="stylesheet" href="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.css') }}" />
+	<link rel="stylesheet" href="{{ static_url('css/style.css') }}" />
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+	<script src="{{ static_url('jquery-ui-1.11.4.custom/jquery-ui.min.js') }}"></script>
+	<script src="{{ static_url('js/timeago.js') }}"></script>
+
+</head>
+
+<body>
+	<div id="top-nav">
+		<input id="searchbox" placeholder="search" class="">
+		<div id="searchresults">
+			<ul class="geosounds"></ul>
+		</div>
+	</div>
+
+	<div id="map" style="width: 100%; height: 100%;"></div>
+
+	<script src="{{ static_url('js/leaflet.js') }}"></script>
+
+	<script>
+		var map;
+		var circles = [];
+		var geoSounds = []; 
+		var userLocation = [40.7245450, -73.9418600]; // NYC default
+
+		var debugDiv;
+		var autoPlayOnPopup = true;
+
+		// check for new geoSounds every 15 seconds
+		var numberOfGeoSoundsInDatabase = 0;
+		var lastCheck = 0;
+		var secondsBeforeRefresh = 15;
+
+		// url for web sockets etc
+		// var apiURL = '52.11.202.99:9000';
+		var apiURL = 'www.xn--vg8hjj.ws';
+		// var apiURL = 'localhost:9000';
+
+		// load the map
+		window.onload = function() {
+			console.log('doc ready');
+			initMap(userLocation);
+			initWebSockets()
+			debugDiv = document.getElementById('msg');
+			initJqueryUI();
+		};
+
+		// center map if user gives location
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition( setUserLocation );
+		}
+
+		// set the user location, then center the map
+		function setUserLocation(loc) {
+			userLocation = [loc.coords.latitude, loc.coords.longitude];
+			centerMap(userLocation);
+		}
+
+		function centerMap(loc) {
+			map.setView(loc, 13);
+
+			// temporary fun: use bounds to set random drift amount range
+			// var bounds = map.getBounds();
+			// var latMin = bounds._southWest.lat;
+			// var latMax = bounds._northEast.lat;
+			// var lngMin = bounds._southWest.lng;
+			// var lngMax = bounds._northEast.lng;
+
+		}
+
+
+		// center the map to any location [lat, lng]
+		function initMap(loc) {
+			map = L.map('map').setView(loc, 13);
+
+			L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={{mapbox_public_key}}', {
+				attribution: 'Map Data!',
+				maxZoom: 18,
+				continuousWorld: false,
+				noWrap: true,
+				id: 'transients.de92d381',
+				accessToken: '{{mapbox_public_key}}'
+			}).addTo(map);
+
+			map.on('popupopen', function(e){
+				map._currentGeoSound =  e.popup._source._geoSound;
+				map._currentPopUp = e.popup;
+
+				var popup = map._currentPopUp;
+				var geoSound = map._currentGeoSound;
+
+				var clickLat = popup._latlng.lat;
+				var clickLng = popup._latlng.lng;
+
+				// get the popup contents
+				var popupContent = document.getElementsByClassName('leaflet-popup-content')[0];
+
+				// find and play the audio
+				if (autoPlayOnPopup) {
+					var audioEl = popupContent.querySelector('audio');
+					audioEl.play();
+				}
+
+				// update the lat/lng
+				var latSpan = popupContent.querySelector('.lat');
+				latSpan.innerHTML = clickLat.toFixed(2);
+				var lngSpan = popupContent.querySelector('.lng');
+				lngSpan.innerHTML = clickLng.toFixed(2);
+
+				// update distance
+				var driftHTML = popupContent.querySelector('.drift-html');
+				if (!driftHTML) return;
+
+				var oLat = geoSound.originalPos.lat;
+				var oLng = geoSound.originalPos.lng;
+
+				driftHTML.innerHTML = "<h4 class='goback' onclick='goToDriftOrigin(this)' data-lat='" + oLat + "'data-lng='" + oLng + "'>Back to Original Location: " + String(Number(oLat).toFixed(2)) + ", " + String(Number(oLng).toFixed(2)) + "</h4><p class='distance-traveled'>Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles</p>";
+
+			});
+
+			map.on('popupclose', function(e){
+				console.log('close');
+				map._currentGeoSound =  null;
+				map._currentPopUp = null;
+			});
+		}
+
+		//receive geoSounds. Create a geoSounds array that will contain data from the db as well as leaflet circles
+		$.getJSON('http://' + apiURL + '/geosounds', function(data) {
+			geoSounds = data['geosounds'];
+			numberOfGeoSoundsInDatabase = geoSounds.length;
+
+			for (i = 0; i < geoSounds.length; i++) {
+				var thisLoc = geoSounds[i];
+				addGeoSound(thisLoc);
+
+				// test if the file exists
+				var request = new XMLHttpRequest();
+				request.open('GET', thisLoc.mp3URL, true);
+				request.onreadystatechange = function(e) {
+					if (request.readyState === 4) {
+						if (request.status > 400) {
+							console.log('nooo');
+
+							// remove this circle
+							geoSounds.pop();
+						}
+					}
+				}
+			request.send(null);
+			}
+
+		});
+
+
+		function checkForNewGeoSounds() {
+			console.log('checking for new');
+			$.getJSON('http://' + apiURL + '/geosounds', function(data) {
+				var newGeoSounds = data['geosounds'];
+				if (newGeoSounds.length > numberOfGeoSoundsInDatabase) {
+					var newSound = newGeoSounds.pop();
+					geoSounds.push(newSound);
+					numberOfGeoSoundsInDatabase = geoSounds.length;
+					flashMessage('<p>A new sound was added: </p><h2>' + newSound.description + '</h2>');
+					addGeoSound(newSound);
+					geoSounds.push(newSound);
+					goToGeoSound(newSound);
+				}
+			});
+		}
+
+		function addGeoSound(thisLoc) {
+
+			var lat = thisLoc['latitude'];
+			var lng = thisLoc['longitude'];
+
+			var latDif = thisLoc['thrownLatitude'];
+			var lngDif = thisLoc['thrownLongitude'];
+
+			var driftHTML = ''
+
+			// vector change in lat/lng
+			var dirVec = {
+				lat: 0,
+				lng: 0
+			};
+
+			// factor in drifting direction (TO DO: velocity/time)
+			if (thisLoc.isDrifting) {
+				// reset to false, then true only if it is actually changing
+				thisLoc.isDrifting = false;
+
+				var latChange = lat - latDif;
+				if (!isNaN(latChange) && latChange != 0) {
+					dirVec.lat = latChange;
+					thisLoc.isDrifting = true;
+				}
+
+				var lngChange = lng - lngDif;
+				if (!isNaN(lngChange) && lngChange != 0) {
+					dirVec.lng = lngChange;
+					thisLoc.isDrifting = true;
+
+					// attach a polyLine to this geoSound
+					thisLoc.polyLine = initPolyLine(lat, lng, lat, lng);
+				}
+			}
+
+			var pos = [lat, lng];
+
+			var circle = L.circle( pos, 50, {
+				color: thisLoc.isDrifting ? 'green' : 'red',
+				fillColor: thisLoc.isDrifting ? 'yellow' : '#f03',
+				fillOpacity: 0.5
+			});
+
+			// the geoSound keeps track of the circle, the circle keeps track of the geosound
+			thisLoc.circle = circle;
+			circle._geoSound = thisLoc;
+
+			// find mp3 url based on sound_url_mp3 (mp3 url)
+			var wavURL = thisLoc['sound_url_mp3'];
+			thisLoc.mp3URL = wavURL;
+
+			// figure out direction
+			thisLoc.dirVec = dirVec;
+			var d = typeof(thisLoc.date) != 'undefined' ? thisLoc['date'] : '';
+			var t = typeof(thisLoc.time) != 'undefined' ? 'T' + thisLoc['time'] : '';
+			thisLoc.originalDate = new Date(d + t);
+			thisLoc.originalPos = {
+				'lat': pos[0],
+				'lng': pos[1]
+			};
+			thisLoc.getCurrentLocation = function() {
+				return this.circle._latlng;
+			}
+
+			if (thisLoc.isDrifting) {
+				driftHTML = "<span class='drift-html'></span>";
+			}
+
+			circles.push(circle);
+
+			var title = typeof(thisLoc['title']) != 'undefined' ? thisLoc['title'] : thisLoc['description'];
+
+			// stupidity checking in case there is not a title (depricated 9/10) or description
+			if (typeof(title) == 'undefined') {
+				title = '';
+			}
+
+			// var date = typeof(thisLoc['date']) != 'undefined' ? $.timeago(new Date(thisLoc['date'])) : '';
+			var date = thisLoc.originalDate;
+			// idiot checking
+			if (date	== 'Invalid Date') {
+				date = '';
+			} else {
+				date = $.timeago(date);
+			}
+
+			var wavURL = typeof(thisLoc['sound_url_mp3']) != 'undefined' ? thisLoc['sound_url_mp3'] : '';
+
+			circle.bindPopup("<h1>"+title +"</h1><h3>"
+			 + date + "</h3>"
+		 	 // + wavURL 
+			 + "<h4>Current Location: <span class='lat'>" + thisLoc.getCurrentLocation().lat + "</span>, <span class='lng'>" + thisLoc.getCurrentLocation().lng + '</span></h4>'
+			 + driftHTML
+			 + "<audio src='" + thisLoc.mp3URL + "' preload=''auto' controls><audio>");
+
+			circle.addTo(map);
+
+			// add sound to html
+			var geoSoundHTML = document.createElement('li');
+			geoSoundHTML.innerHTML = title;
+			geoSoundHTML.setAttribute('mp3url', thisLoc.mp3URL);
+			// geoSoundHTML.setAttribute('hidden', true);
+			var theList = $('.geosounds')[0];
+			theList.insertBefore(geoSoundHTML, theList.firstChild);
+			geoSoundHTML.addEventListener('click', function(e) {
+				goToGeoSound(thisLoc);
+			});
+
+		}
+
+
+		// animate the circles
+		var start = 0;
+
+		function step(timestamp) {
+			var bounds = map.getBounds();
+
+			// first time
+			if (lastCheck === 0) {
+				lastCheck = timestamp;
+			}
+
+			// update if more than 15 seconds have passed
+			if ( lastCheck > 0 && (timestamp - lastCheck) / 1000 > secondsBeforeRefresh) {
+				checkForNewGeoSounds();
+				lastCheck = timestamp;
+			}
+
+			var seconds = Math.round(timestamp / 1000);
+			var radiusChange = seconds % 2 ? -0.2 : 0.2;
+			var now = new Date();
+
+			for (var i = 0; i < geoSounds.length; i++) {
+				var geo = geoSounds[i];
+				var c = geo.circle;
+				var elapsedTime = (now - geo.originalDate);
+
+				geo.circle._mRadius += radiusChange;
+
+				// drift
+				if (geo.isDrifting) {
+					calculateDrift(geo, c, elapsedTime);
+				};
+
+				c.redraw();
+			}
+
+			if (map._currentPopUp) {
+				updatePopup();
+			}
+
+			window.requestAnimationFrame(step);
+		}
+		// init animation loop
+		window.requestAnimationFrame(step);
+
+
+		// WEB SOCKETS
+		function initWebSockets() {
+			// web sockets
+			var ws = new WebSocket("ws://" + apiURL + "/websocket");
+			ws.onopen = function() {
+			   ws.send("Hello, world");
+			   console.log('connected to web socket');
+			};
+			ws.onmessage = function (evt) {
+				var data = JSON.parse(evt.data);
+
+				// add a new sound
+				if (data.newSound) {
+					// commenting this out for now, it was not working well
+
+					// flashMessage('<p>A new sound was added: </p><h2>' + data.newSound.description + '</h2>');
+					// addGeoSound(data.newSound);
+					// geoSounds.push(data.newSound);
+				}
+
+				else if (data.newSounds) {
+					console.log(data.newSounds);
+				}
+
+				else if (data.msg) {
+					console.log(data.msg);
+				}
+			};
+		}
+
+
+		function flashMessage(someText) {
+			var d = $( "#dialog" );
+			var msg = $('#msg')[0];
+			msg.innerHTML = someText;
+			d.dialog( "open" );
+
+			window.setTimeout(function() {
+				$( "#dialog" ).dialog( "close" );
+			}, 2000);
+
+		}
+
+		function initJqueryUI() {
+			$(function() {
+				$( "#dialog" ).dialog({
+				  autoOpen: false,
+				  show: {
+				    effect: "blind",
+				    duration: 500
+				  },
+				  hide: {
+				    effect: "explode",
+				    duration: 1000
+				  }
+				});
+			
+				$( "#opener" ).bind('touchstart mousedown', function(event) {
+				  $( "#dialog" ).dialog( "open" );
+
+				  window.setTimeout(function() {
+				    $( "#dialog" ).dialog( "close" );
+				  }, 2000);
+				});
+
+				// make search box div collapsable
+				$( '#searchresults').bind('touchstart mousedown', function() {
+
+				});
+			});
+
+			initSearchBox();
+		}
+
+		// via http://www.designchemical.com/blog/index.php/jquery/live-text-search-function-using-jquery/
+		function initSearchBox() {
+			$("#searchbox").keyup(function(){
+
+				// Retrieve the input field text and reset the count to zero
+				var filter = $(this).val();
+				var count = 0;
+
+
+				// Loop through the comment list
+				$(".geosounds li").each(function(){
+			
+				    // If the list item does not contain the text phrase fade it out
+				    if ($(this).text().search(new RegExp(filter, "i")) < 0) {
+				        $(this).fadeOut();
+			
+				    // Show the list item if the phrase matches and increase the count by 1
+				    } else {
+				        $(this).show();
+				        count++;
+				    }
+				});
+			
+				// Update the count
+				// var numberItems = count;
+				// $("#filter-count").text("Number of Comments = "+count);
+			 });
+		}
+
+
+		function calculateDrift(geo, c, elapsedTime) {
+			var newLat = Number(geo.originalPos.lat) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lat);
+			var newLng = Number(geo.originalPos.lng) + Number(elapsedTime) / 20000000 * Number(geo.dirVec.lng);
+
+			c._latlng.lat = newLat % 90;
+			c._latlng.lng = newLng % 180;
+
+			// border checking to make sure they dont get caught
+			if (c._latlng.lng >= 180) {
+				c._latlng.lng = -179;
+			}
+			if (c._latlng.lng <= -180) {
+				c._latlng.lng = 179;
+			}
+			if (c._latlng.lat >= 90) {
+				c._latlng.lat = -89;
+			}
+			if (c._latlng.lat <= -90) {
+				c._latlng.lat = 89;
+			}
+
+			updatePolyLine(geo.polyLine, c._latlng.lat, c._latlng.lng);
+		}
+
+		// init a line from original(o) to current(c)
+		function initPolyLine(oLat, oLng, cLat, cLng) {
+			var pointA = new L.LatLng(oLat, oLng);
+			var pointB = new L.LatLng(cLat, cLng);
+
+			// var pointList = [pointA, pointB];
+			var pointList = [pointA];
+
+			var polyLine = new L.Polyline(pointList, {
+				color: '#5981E6',
+				weight: 4,
+				opacity: 0.7,
+				smoothFactor: 1,
+				dashArray: "5, 5",
+				clickable: true
+			});
+
+			//on click, go to location
+			polyLine.on('click', function(e) {
+				map.setView(e.target._latlngs[1], 6);
+			});
+
+			polyLine.addTo(map);
+			return polyLine
+		}
+
+		function updatePolyLine(polyLine, cLat, cLng) {
+			if (isNaN(cLat) || isNaN(cLng)) {
+				return;
+			} else {
+				console.log(cLat, cLng);
+			}
+			var newPointB = new L.LatLng(cLat, cLng);
+
+			polyLine._latlngs[1] = newPointB;
+
+			polyLine.redraw();
+		}
+
+		function goToGeoSound(geoSound) {
+			var currentLoc = geoSound.getCurrentLocation();
+			map.setView(currentLoc, 13);
+			geoSound.circle.openPopup();
+		}
+
+		// when popup for a drifter is clicked, go to the original location
+		function goToDriftOrigin(elem) {
+			map._currentPopUp._close();
+			var lat = elem.getAttribute('data-lat');
+			var lng = elem.getAttribute('data-lng');
+
+			var originPoint = new L.LatLng(lat, lng);
+
+			map.setView(originPoint, 13)
+		}
+
+		// via http://www.geodatasource.com/developers/javascript  // returns Miles by default
+		function calcDistance(loc) {
+			var cLat = loc.circle._latlng.lat;
+			var cLng = loc.circle._latlng.lng;
+			var oLat = loc.originalPos.lat;
+			var oLng = loc.originalPos.lng;
+			return calculateDistance(oLat, oLng, cLat, cLng);
+		}
+
+		function calculateDistance(lat1, lon1, lat2, lon2, unit) {
+			var radlat1 = Math.PI * lat1/180
+			var radlat2 = Math.PI * lat2/180
+			var radlon1 = Math.PI * lon1/180
+			var radlon2 = Math.PI * lon2/180
+			var theta = lon1-lon2
+			var radtheta = Math.PI * theta/180
+			var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+			dist = Math.acos(dist)
+			dist = dist * 180/Math.PI
+			dist = dist * 60 * 1.1515
+			if (unit=="K") { dist = dist * 1.609344 }
+			if (unit=="N") { dist = dist * 0.8684 }
+			return dist
+		}
+
+		// called during drawloop if a popup is open
+		function updatePopup() {
+			var popup = map._currentPopUp;
+			var geoSound = map._currentGeoSound;
+
+			var lat = geoSound.circle._latlng.lat;
+			var lng = geoSound.circle._latlng.lng;
+
+			// get the popup contents
+			var popupContent = document.getElementsByClassName('leaflet-popup-content')[0];
+
+			// update the lat/lng
+			var latSpan = popupContent.querySelector('.lat');
+			latSpan.innerHTML = lat.toFixed(5);
+			var lngSpan = popupContent.querySelector('.lng');
+			lngSpan.innerHTML = lng.toFixed(5);
+
+			// update distance
+			var distanceTraveled = popupContent.querySelector('.distance-traveled');
+			if (!distanceTraveled) return;
+
+			distanceTraveled.innerHTML = "Distance Traveled: " + calcDistance(geoSound).toFixed(3) + " Miles";
+
+			popup.setLatLng([lat, lng]);
+		}
+
+
+	</script>
+
+	<div id="dialog" title="New Sound">
+		<span id="msg"></span>
+	</div>
+	 
+	<!-- <button id="opener">Open Dialog</button> -->
+</body>
+</html>
+
+<!--
+	research:
+	 http://zevross.com/blog/2014/09/30/use-the-amazing-d3-library-to-animate-a-path-on-a-leaflet-map/
+-->

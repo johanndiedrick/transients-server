@@ -1,0 +1,58 @@
+<html> 
+<head> 
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" /> 
+  <title>Google Maps Multiple Markers</title> 
+  <script src="http://maps.google.com/maps/api/js?sensor=false" 
+          type="text/javascript"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+</head> 
+<body>
+  <div id="map" style="width: 100%; height: 100%;"></div>
+
+  
+  <script type="text/javascript">
+
+	
+	//receive locations from geoimgjson
+	var locations = []; 
+	 //$.getJSON('http://ec2-52-24-91-31.us-west-2.compute.amazonaws.com:9000/geosounds', function(data) {
+	 $.getJSON('http://www.xn--vg8hjj.ws/geosounds', function(data) {
+	 	locations = data['geosounds'];	
+	 	console.log(locations);
+  
+
+        console.log(locations);  
+
+  	//google maps code
+	var map = new google.maps.Map(document.getElementById('map'), {
+      	zoom: 10,
+      	center: new google.maps.LatLng(40.725896791592916, -73.98037984042799),
+      	mapTypeId: google.maps.MapTypeId.ROADMAP
+    	});
+
+    	var infowindow = new google.maps.InfoWindow();
+
+    	var marker, i;
+
+    	for (i = 0; i < locations.length; i++) {  
+      	marker = new google.maps.Marker({
+        position: new google.maps.LatLng(locations[i]['latitude'], locations[i]['longitude']),
+	map: map
+      	});
+
+      	google.maps.event.addListener(marker, 'click', (function(marker, i) {
+        return function() {
+	infowindow.setContent("<audio src='" + locations[i]['sound_url_mp3'] + "' preload=''auto' controls><audio>");
+	infowindow.open(map, marker);
+        }
+      		})(marker, i));
+    	}	
+
+	 });
+
+  </script>
+  
+
+</body>
+</html>

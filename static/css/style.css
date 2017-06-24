@@ -1,0 +1,74 @@
+.goback {
+	color: blue;
+}
+
+.goback:hover {
+	color:yellow;
+	background-color:purple;
+}
+
+#top-nav {
+	position: absolute;
+	width:100%;
+	z-index: 1;
+	height:0px;
+}
+
+#searchresults {
+	display:inline-block;
+	float:right;
+	background-color:rgba(220, 220, 220, 0.75);
+	max-height: 400px;
+	overflow:scroll;
+	margin: 25px;
+}
+
+#searchbox {
+	position:fixed;
+	right:10px;
+	width: 200px;
+	margin: 10px;
+}
+
+.geosounds {
+	padding:5px;
+	float: right;
+	width:200px;
+	list-style-type: none;
+}
+
+.geosounds li {
+	right: 10px;
+	text-decoration: none;
+}
+
+.geosounds li:hover {
+	right: 10px;
+	text-decoration: none;
+	background-color:rgba(255, 0, 255, 0.75);
+	color:white;
+}
+
+.leaflet-popup-content h1{
+	padding:0px 0;
+	margin:0px;
+	/*line-height:0px;*/
+}
+
+.leaflet-popup-content h3{
+	padding:0px 0;
+	margin:0px;
+	/*line-height:0px;*/
+}
+
+.leaflet-popup-content h4{
+	padding:0px 0;
+	margin:0px;
+	/*line-height:0px;*/
+}
+
+@media only screen and (max-device-width: 480px) {
+	#searchresults {
+		display: none;
+	}
+}

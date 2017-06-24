@@ -1,2 +1,4 @@
 transients_globals.py*
-env/
+venv/
+_notes
+env

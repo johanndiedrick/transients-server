@@ -1,0 +1,217 @@
+<html>
+<head>
+	<title>Transients Map</title>
+	<meta charset="utf-8" />
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<link rel="stylesheet" href="{{ static_url('css/leaflet.css') }}" />
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+	<script src="{{ static_url('js/tone.js') }}"></script>
+	<script src="{{ static_url('js/transients-sound.js') }}"></script>
+
+</head>
+
+<body>
+	<div id="msg" style="position:fixed; width: 100%; height:5%; z-index:10; text-align:right; right:10px; background:white;">Hello</div>
+  <div id="map" style="width: 100%; height: 100%;"></div>
+
+	<script src="{{ static_url('js/leaflet.js') }}"></script>
+
+	<script>
+		var map;
+		var circles = [];
+		var userLocation = [42.92916, -33.98037984042799]; // NYC default
+
+		var debugDiv;
+
+		// load the map
+		window.onload = function() {
+			console.log('doc ready');
+			initMap(userLocation);
+
+			debugDiv = document.getElementById('msg');
+		};
+
+		// center map if user gives location
+		if (navigator.geolocation) {
+			navigator.geolocation.getCurrentPosition( setUserLocation );
+		}
+
+		// set the user location, then center the map
+		function setUserLocation(loc) {
+			userLocation = [loc.coords.latitude, loc.coords.longitude];
+			centerMap(userLocation);
+		}
+
+		function centerMap(loc) {
+			map.setView(loc, 13);
+
+
+			// temporary fun: use bounds to set random drift amount range
+			var bounds = map.getBounds();
+			var latMin = bounds._southWest.lat;
+			var latMax = bounds._northEast.lat;
+			var lngMin = bounds._southWest.lng;
+			var lngMax = bounds._northEast.lng;
+
+			for (var i = 0; i < circles.length; i++) {
+				var circle = circles[i];
+				var positiveOrNegativeLat = Math.random() > 0.5 ? -1 : 1;
+				var positiveOrNegativeLng = Math.random() > 0.5 ? -1 : 1;
+				circle.velocity.lat = positiveOrNegativeLat * Math.random() * (latMax - latMin) /2000;
+				circle.velocity.lng = positiveOrNegativeLng * Math.random() * (lngMax - lngMin) /2000;
+			}
+
+
+		}
+
+		// center the map to any location [lat, lng]
+		function initMap(loc) {
+			map = L.map('map').setView(loc, 13);
+
+			L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={{mapbox_public_key}}', {
+				attribution: 'Map Data!',
+				maxZoom: 18,
+				id: 'transients.de92d381',
+				accessToken: '{{mapbox_public_key}}'
+			}).addTo(map);
+
+		}
+
+
+		//receive locations
+		var locations = []; 
+
+		// only get 10 sounds
+		// var numberOfSounds = 10;
+
+		$.getJSON('http://ec2-52-24-91-31.us-west-2.compute.amazonaws.com:9000/geosounds', function(data) {
+			locations = data['geosounds'];
+			console.log(locations);
+
+
+			for (i = 0; i < locations.length; i++) {
+				var lat = locations[i]['latitude'];
+				var lng = locations[i]['longitude'];
+				var pos = [lat, lng];
+
+				var circle = L.circle( pos, 50, {
+					color: 'red',
+					fillColor: '#f03',
+					fillOpacity: 0.5
+				});
+
+				circle.soundURL = locations[i]['sound_url'];
+
+				// test if the file exists
+				var request = new XMLHttpRequest();  
+				request.open('GET', circle.soundURL, true);
+				request.onreadystatechange = function(){
+						if (request.readyState === 4){
+							if (request.status > 400) {  
+									console.log(circle.soundURL + ' failed to load, file does not exist');
+									circles.pop(); // remove this item from the circles array
+							}
+							else {
+
+								circle.addTo(map);
+
+								// circle.bindPopup("<audio src='" + locations[i]['sound_url'] + "' preload=''auto' controls><audio>");
+
+
+								request.onreadystatechange = null;
+
+								// load the buffer and attach it to the circle's player
+								circle.player = new Tone.Player(circle.soundURL).toMaster();
+
+								circle.velocity = {
+									lat: 0.00001,
+									lng: 0.00001
+								};
+
+								// store prevLatLng to detect collisions later
+								circle._prevLatLng = {};
+
+								// save to array of circles so that we can remove / add / modify in animation loop.
+								debugDiv.innerHTML = 'Circles loaded: ' + circles.length + 'Load Progress:' + TSound.loadProgress;
+						};
+					}
+				};
+				request.send();
+			}
+		});
+
+
+		// animate the circles
+		var start = 0;
+
+		function step(timestamp) {
+			var bounds = map.getBounds();
+			var latMin = bounds._southWest.lat;
+			var latMax = bounds._northEast.lat;
+			var lngMin = bounds._southWest.lng;
+			var lngMax = bounds._northEast.lng;
+
+			if (circles.length > 0 && TSound.loaded) {
+				for (var i = 0; i < circles.length; i++) {
+					var c = circles[i];
+
+					map.removeLayer(circles[i]);
+
+					// store previous latlng
+					c._prevLatLng.lat = c._latlng.lat;
+					c._prevLatLng.lng = c._latlng.lng;
+
+					c._latlng.lat += c.velocity.lat;
+					c._latlng.lng += c.velocity.lng;
+
+					// border checking - if it was in range but is now out, we have a collision
+					if ( ((c._latlng.lat >= latMax && c._prevLatLng.lat < latMax) || (c._latlng.lat <= latMin && c._prevLatLng.lat > latMin) ) ){
+						c.velocity.lat *= -1;
+						try {
+							console.log(i);
+							console.log(circles[i].player._buffer._buffer);
+							c.player.start();
+							// console.log('play!' + c.soundURL);
+						} catch(e) {console.log(e)}
+					}
+
+					if ( ((c._latlng.lng >= lngMax && c._prevLatLng.lng < lngMax) || (c._latlng.lng <= latMin && c._prevLatLng.lng > latMin) ) ){
+						c.velocity.lng *= -1;
+						try {
+							console.log(i);
+							console.log(circles[i].player._buffer._buffer);
+							c.player.start();
+							// console.log('play!' + c.soundURL);
+						} catch(e) {console.log(e)}
+					}
+
+					// if ( ((c._latlng.lng + c.velocity.lng) >= lngMax) || ( (c._latlng.lng + c.velocity.lng) < lngMin) ){
+					// 	c.velocity.lng *= -1;
+					// 	try {
+					// 		console.log('collision ' + i);
+
+					// 		// c.player.start(c.player.now());
+					// 		// console.log('play!' + c.soundURL);
+					// 	} catch(e) {console.log(e)}
+					// }
+
+					map.addLayer(c);
+				}
+			}
+			window.requestAnimationFrame(step);
+		}
+		window.requestAnimationFrame(step);
+
+	</script>
+
+
+</body>
+</html>
+
+<!--
+	research:
+	 http://zevross.com/blog/2014/09/30/use-the-amazing-d3-library-to-animate-a-path-on-a-leaflet-map/
+-->
