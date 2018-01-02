@@ -41,9 +41,13 @@
 	map: map
       	});
 
+	
       	google.maps.event.addListener(marker, 'click', (function(marker, i) {
         return function() {
-	infowindow.setContent("<audio src='" + locations[i]['sound_url_mp3'] + "' preload=''auto' controls><audio>");
+	console.log(locations[i]);
+	infowindow.setContent("<audio src='" + locations[i]['sound_url_mp3'] + "' preload=''auto' controls></audio>" +
+	" | <a href='report/?id=" + locations[i]['_id']['$oid']  +  "' class='report'>Report</a>"
+	);
 	infowindow.open(map, marker);
         }
       		})(marker, i));
@@ -52,7 +56,5 @@
 	 });
 
   </script>
-  
-
 </body>
 </html>

@@ -11,6 +11,7 @@ import tornado.websocket
 from transients_globals import transients_mp3_bucket, aws_public_key, aws_secret_key, mongodb_uri, transients_aws_base_url, transients_s3_base_url, mapbox_public_key, mapbox_secret_key
 
 from bson import json_util
+from bson.objectid import ObjectId
 import json
 
 import boto
@@ -39,6 +40,7 @@ class Application(tornado.web.Application):
 				(r"/uploadwav", UploadWavHandler),
 				(r"/uploadjson", UploadJSONHandler),
 				(r"/map", MapHandler),
+				(r"/report/", ReportHandler),
 				(r"/newmap", NewMapHandler),
 				(r"/mapb", MapBHandler),
 				(r"/websocket", EchoWebSocketHandler),
@@ -66,6 +68,33 @@ class MainHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.set_header("Access-Control-Allow-Origin", "*")
 		self.write("Hello, world")
+
+class ReportHandler(tornado.web.RequestHandler):
+	@tornado.web.asynchronous
+	@tornado.gen.coroutine
+	def get(self):
+		self.set_header("Access-Control-Allow-Origin", "*")
+		id = self.get_argument('id', True)
+		# collection
+
+		coll = self.application.db.geosounds
+		cursor = coll.find({ "_id": ObjectId(id) })
+
+		while (yield cursor.fetch_next):
+			geosound = cursor.next_object()
+
+			# only update if 'loc' field doesnt exist
+			if ('reported' in geosound.keys() ):
+				continue
+
+			geosound['reported'] = True
+
+			print geosound
+			yield coll.save(geosound)
+
+			print('updated')
+
+		self.render("report.html", id=id)
 
 class GeosoundsHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
@@ -177,7 +206,9 @@ class UploadWavHandler(tornado.web.RequestHandler):
 
 class UploadJSONHandler(tornado.web.RequestHandler):
 	def post(self):
+		print "uploading json"
 		data_json = tornado.escape.json_decode(self.request.body)
+		print data_json
 
 		# collection
 		coll = self.application.db.geosounds
@@ -202,6 +233,8 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['thrownLatitude'] = data_json['thrownLatitude']
 		sound['thrownLongitude'] = data_json['thrownLongitude']
 
+		print "printing sound"
+		print sound
 
 		# send the new sound to all connected clients
 		for c in cl:
