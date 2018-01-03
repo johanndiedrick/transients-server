@@ -223,7 +223,7 @@ class UploadJSONHandler(tornado.web.RequestHandler):
 		sound['loc'] = { 'type': "Point" , 'coordinates': [float(lng), float(lat)] }
 
 
-		sound['sound_url_mp3'] = transients_s3_base_url + data_json['filename']
+		sound['sound_url_mp3'] = transients_s3_base_url + datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S") + ".wav"
 
 		sound['datetime'] = datetime.datetime.utcnow()
 
